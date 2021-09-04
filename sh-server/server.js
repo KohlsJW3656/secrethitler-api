@@ -9,7 +9,7 @@ const server = require("http").createServer(app);
 
 let credentials = JSON.parse(fs.readFileSync("credentials.json", "utf8"));
 let connection = mysql.createConnection(credentials);
-//connection.connect();
+connection.connect();
 
 const io = require("socket.io")(server, {
   cors: {
@@ -60,12 +60,12 @@ app.patch("/policy/:policy_id", (request, response) => {
 
 io.on("connection", (socket) => {
   socketCount++;
-  io.sockets.emit("Users conneceted", socketCount);
+  io.sockets.emit("users-conneceted", socketCount);
   console.log("Users connected", socketCount);
 
   socket.on("disconnect", function () {
     socketCount--;
-    io.sockets.emit("Users connected", socketCount);
+    io.sockets.emit("users-conneceted", socketCount);
     console.log("Users connected", socketCount);
   });
 
