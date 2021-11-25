@@ -14,7 +14,7 @@ exports.allPolicies = async (req, res) => {
       }
       res.send({
         ok: true,
-        policies: results,
+        allPolicies: results,
       });
     });
   });
@@ -63,6 +63,27 @@ exports.deckPolicies = async (req, res) => {
 };
 
 /*
+  Route: /policy/discarded
+  Selects all policies that are discarded
+*/
+exports.discardedPolicies = async (req, res) => {
+  const query =
+    "SELECT * FROM policy WHERE isDiscarded = 1 AND isEnacted = 0 ORDER BY deckOrder ASC";
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, (error, results) => {
+      if (error) {
+        console.log(error);
+      }
+      res.send({
+        ok: true,
+        discardedPolicies: results,
+      });
+    });
+  });
+};
+
+/*
   Route: /policy/enacted
   Selects all policies that are enacted
 */
@@ -77,6 +98,26 @@ exports.enactedPolicies = async (req, res) => {
       res.send({
         ok: true,
         enactedPolicies: results,
+      });
+    });
+  });
+};
+
+/*
+  Route: /policy/notenacted
+  Selects all policies that are not enacted
+*/
+exports.notEnactedPolicies = async (req, res) => {
+  const query = "SELECT * FROM policy WHERE isEnacted = 0";
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, (error, results) => {
+      if (error) {
+        console.log(error);
+      }
+      res.send({
+        ok: true,
+        notEnactedPolicies: results,
       });
     });
   });
@@ -109,13 +150,13 @@ exports.topPolicy = async (req, res) => {
 */
 exports.editPolicy = async (req, res) => {
   const query =
-    "UPDATE olicy SET type = ?, deckOrder = ?, isDiscarded = ?, isEnacted = ? WHERE policy_id = ?";
+    "UPDATE policy SET type = ?, deckOrder = ?, isDiscarded = ?, isEnacted = ? WHERE policy_id = ?";
   const params = [
-    request.body.type,
-    request.body.deckOrder,
-    request.body.isDiscarded,
-    request.body.isEnacted,
-    request.body.policy_id,
+    req.body.type,
+    req.body.deckOrder,
+    req.body.isDiscarded,
+    req.body.isEnacted,
+    req.body.policy_id,
   ];
 
   connection.query(query, params, (error, results) => {

@@ -17,7 +17,9 @@ router.patch("/policy/edit", authenticateToken, policy.editPolicy);
 router.get("/policy/all", authenticateToken, policy.allPolicies);
 router.get("/policy/draw", authenticateToken, policy.drawPolicies);
 router.get("/policy/deck", authenticateToken, policy.deckPolicies);
+router.get("/policy/discarded", authenticateToken, policy.discardedPolicies);
 router.get("/policy/enacted", authenticateToken, policy.enactedPolicies);
+router.get("/policy/notenacted", authenticateToken, policy.notEnactedPolicies);
 router.get("/policy/top", authenticateToken, policy.topPolicy);
 
 //Admin routes
