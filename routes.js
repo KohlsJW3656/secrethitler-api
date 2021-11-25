@@ -13,7 +13,7 @@ router.get("/user", authenticateToken, user.get);
 
 //Policy routes
 const policy = require("./controllers/policy");
-router.patch("/policy/edit", authenticateToken, phone.editPolicy);
+router.patch("/policy/edit", authenticateToken, policy.editPolicy);
 router.get("/policy/all", authenticateToken, policy.allPolicies);
 router.get("/policy/draw", authenticateToken, policy.drawPolicies);
 router.get("/policy/deck", authenticateToken, policy.deckPolicies);

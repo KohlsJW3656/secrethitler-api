@@ -3,10 +3,11 @@ DROP TABLE IF EXISTS policy;
 
 CREATE TABLE user (
   user_id SERIAL PRIMARY KEY,
-  first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL,
-  email TEXT NOT NULL,
+  first_name VARCHAR(25) NOT NULL,
+  last_name VARCHAR(25) NOT NULL,
+  email VARCHAR(200) NOT NULL,
   account_type BOOLEAN NOT NULL,
+  last_used DATETIME NOT NULL,
   password TEXT NOT NULL
 );
 

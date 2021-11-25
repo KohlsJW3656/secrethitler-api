@@ -53,7 +53,6 @@ const io = require("socket.io")(server, {
   },
 });
 let socketCount = 0;
-let allPolicies = [];
 
 io.on("connection", (socket) => {
   socketCount++;
@@ -65,23 +64,12 @@ io.on("connection", (socket) => {
     io.sockets.emit("users-conneceted", socketCount);
     console.log("Users connected", socketCount);
   });
-
-  socket.on("get-policies", () => {
-    connection
-      .query("SELECT * FROM policy ORDER BY deckOrder ASC")
-      .on("result", (row) => {
-        allPolicies.push(row);
-      })
-      .on("end", () => {
-        socket.broadcast.emit("receive-changes", allPolicies);
-      });
-  });
 });
 
 const PORT = 3445;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`We're live on port ${PORT}!`);
 });
 
-module.exports = app;
+module.exports = server;
