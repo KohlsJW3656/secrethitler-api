@@ -207,26 +207,38 @@ exports.forgotPassword = async (req, res) => {
         email: email,
         account_type: userData.account_type,
       },
-      "Website"
+      "Reset"
     );
 
-    //send email
+    let htmlFile = await new Promise((resolve, reject) => {
+      fs.readFile(
+        "./emails/resetpassword.html",
+        { encoding: "utf-8" },
+        (err, data) => {
+          if (err) {
+            return reject();
+          } else {
+            return resolve(data.replace("$jwt$", jwt));
+          }
+        }
+      );
+    });
+
+    //Generate email file
     let transporter = nodemailer.createTransport({
-      service: "gmail",
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
       auth: JSON.parse(fs.readFileSync("emailCredentials.json", "utf8")),
     });
     let mailOptions = {
       from: JSON.parse(fs.readFileSync("emailCredentials.json", "utf8")).email,
       to: email,
       subject: "FMyA Password Reset",
-      html:
-        "<h1>Secret Hitler Online Password Reset</h1>" +
-        "<p>Click the link below to reset your password. This link will expire in 1 hour<p/>" +
-        "<p><a href='https://secrethitleronline.duckdns.org/resetpassword/" +
-        jwt +
-        "'>Reset password</a></p>",
+      html: htmlFile,
     };
 
+    //Send the email
     transporter.sendMail(mailOptions, (error, info) => {
       if (error) {
         console.log(error);
@@ -311,9 +323,9 @@ function getPassword(email, password) {
 }
 
 function generateJWT(user, source) {
-  if (source === "android") {
-    return jwt.sign(user, secretJwt);
+  if (source === "Reset") {
+    return jwt.sign(user, secretJwt, { expiresIn: "1d" });
   } else {
-    return jwt.sign(user, secretJwt, { expiresIn: "3600s" });
+    return jwt.sign(user, secretJwt, { expiresIn: "7d" });
   }
 }

@@ -53,13 +53,50 @@ const io = require("socket.io")(server, {
   },
 });
 let socketCount = 0;
+let lobbyUsers = [];
+let lobbyPlayerCount = 0;
+
+const getUsersInRoom = (lobbyId) => {
+  let lobbyUsers = io.to(lobbyId).clients().connected;
+  let sockets = Object.values(lobbyUsers);
+  let users = sockets.map((socket) => socket.user);
+  return users.filter((user) => user != undefined);
+};
 
 io.on("connection", (socket) => {
   socketCount++;
   io.sockets.emit("users-conneceted", socketCount);
   console.log("Users connected", socketCount);
 
-  socket.on("disconnect", function () {
+  socket.on("joinLobby", (data) => {
+    let username = data.username;
+    let lobbyId = data.lobbyId;
+
+    socket.join(lobbyId);
+    console.log(username + " has joined Lobby " + lobbyId);
+
+    lobbyUsers.push({ username });
+    lobbyPlayerCount++;
+
+    io.to(lobbyId).emit("connectToRoom", {
+      lobbyId,
+      lobbyUsers,
+      lobbyPlayerCount,
+    });
+
+    socket.user = username;
+  });
+
+  socket.on("disconnect", () => {
+    const { user } = socket;
+    if (user) {
+      lobbyPlayerCount--;
+      lobbyUsers.pop();
+      io.to(socket.room).emit("connectToRoom", {
+        lobbyUsers,
+        lobbyPlayerCount,
+      });
+    }
     socketCount--;
     io.sockets.emit("users-conneceted", socketCount);
     console.log("Users connected", socketCount);
