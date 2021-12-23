@@ -53,15 +53,6 @@ const io = require("socket.io")(server, {
   },
 });
 let socketCount = 0;
-let lobbyUsers = [];
-let lobbyPlayerCount = 0;
-
-const getUsersInRoom = (lobbyId) => {
-  let lobbyUsers = io.to(lobbyId).clients().connected;
-  let sockets = Object.values(lobbyUsers);
-  let users = sockets.map((socket) => socket.user);
-  return users.filter((user) => user != undefined);
-};
 
 io.on("connection", (socket) => {
   socketCount++;
