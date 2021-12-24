@@ -1,4 +1,6 @@
+DROP TABLE IF EXISTS lobby_user;
 DROP TABLE IF EXISTS user;
+DROP TABLE IF EXISTS lobby;
 DROP TABLE IF EXISTS policy;
 
 CREATE TABLE user (
@@ -6,9 +8,22 @@ CREATE TABLE user (
   first_name VARCHAR(25) NOT NULL,
   last_name VARCHAR(25) NOT NULL,
   email VARCHAR(200) NOT NULL,
+  verified BOOLEAN NOT NULL,
   account_type BOOLEAN NOT NULL,
   last_used DATETIME NOT NULL,
   password TEXT NOT NULL
+);
+
+CREATE TABLE lobby (
+  lobby_id SERIAL PRIMARY KEY,
+  lobby_code VARCHAR(5) NOT NULL,
+  player_count INT NOT NULL,
+  time_created DATETIME NOT NULL
+);
+
+CREATE TABLE lobby_user (
+  lobby_id INT NOT NULL REFERENCES lobby,
+  user_id INT NOT NULL REFERENCES user
 );
 
 CREATE TABLE policy (
