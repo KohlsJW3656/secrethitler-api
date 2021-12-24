@@ -207,7 +207,7 @@ exports.forgotPassword = async (req, res) => {
         email: email,
         account_type: userData.account_type,
       },
-      "Website"
+      "Reset"
     );
 
     //send email
@@ -221,7 +221,7 @@ exports.forgotPassword = async (req, res) => {
       subject: "FMyA Password Reset",
       html:
         "<h1>Secret Hitler Online Password Reset</h1>" +
-        "<p>Click the link below to reset your password. This link will expire in 1 hour<p/>" +
+        "<p>Click the link below to reset your password. This link will expire in 1 day<p/>" +
         "<p><a href='https://secrethitleronline.duckdns.org/resetpassword/" +
         jwt +
         "'>Reset password</a></p>",
@@ -311,9 +311,9 @@ function getPassword(email, password) {
 }
 
 function generateJWT(user, source) {
-  if (source === "android") {
-    return jwt.sign(user, secretJwt);
+  if (source === "reset") {
+    return jwt.sign(user, secretJwt, { expiresIn: "1d" });
   } else {
-    return jwt.sign(user, secretJwt, { expiresIn: "3600s" });
+    return jwt.sign(user, secretJwt, { expiresIn: "7d" });
   }
 }
