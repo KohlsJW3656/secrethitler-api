@@ -39,6 +39,8 @@ app.use(function (req, res, next) {
 app.use(express.json());
 
 const bodyParser = require("body-parser");
+const { allPolicies1 } = require("./controllers/policy");
+const connection = require("./connection");
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -53,6 +55,7 @@ const io = require("socket.io")(server, {
   },
 });
 let socketCount = 0;
+let lobbyPlayerCount = 0;
 
 io.on("connection", (socket) => {
   socketCount++;
@@ -60,22 +63,33 @@ io.on("connection", (socket) => {
   console.log("Users connected", socketCount);
 
   socket.on("joinLobby", (data) => {
-    let username = data.username;
-    let lobbyId = data.lobbyId;
+    let lobbyUsers = [];
 
-    socket.join(lobbyId);
-    console.log(username + " has joined Lobby " + lobbyId);
+    connection
+      .query("SELECT * FROM lobby_user ORDER BY username ASC")
+      .on("result", (row) => {
+        lobbyUsers.push(row);
+      })
+      .on("end", () => {
+        let policies = allPolicies1();
+        let username = data.username;
+        let lobbyCode = data.lobbyCode;
+        console.log(policies);
+        console.log(lobbyUsers);
+        socket.join(lobbyCode);
+        console.log(username + " has joined Lobby " + lobbyCode);
 
-    lobbyUsers.push({ username });
-    lobbyPlayerCount++;
+        lobbyPlayerCount++;
 
-    io.to(lobbyId).emit("connectToRoom", {
-      lobbyId,
-      lobbyUsers,
-      lobbyPlayerCount,
-    });
+        io.to(lobbyCode).emit("connectToRoom", {
+          lobbyCode,
+          lobbyUsers,
+          lobbyPlayerCount,
+          policies,
+        });
 
-    socket.user = username;
+        socket.user = username;
+      });
   });
 
   socket.on("disconnect", () => {

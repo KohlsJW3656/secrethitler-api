@@ -20,6 +20,21 @@ exports.allPolicies = async (req, res) => {
   });
 };
 
+exports.allPolicies1 = async () => {
+  console.log("Inside allPolicies");
+  const query = "SELECT * FROM policy ORDER BY deckOrder ASC";
+
+  await new Promise((resolve, reject) => {
+    connection.query(query, (error, results) => {
+      if (error) {
+        console.log(error);
+        return reject();
+      }
+      return resolve(results);
+    });
+  });
+};
+
 /*
   Route: /policy/draw
   Selects top 3 or 2 policies depending on the turn
