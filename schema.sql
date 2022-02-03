@@ -1,7 +1,9 @@
-DROP TABLE IF EXISTS lobby_user;
-DROP TABLE IF EXISTS user;
-DROP TABLE IF EXISTS lobby;
+DROP TABLE IF EXISTS game_user;
+DROP TABLE IF EXISTS game_policy;
+DROP TABLE IF EXISTS game;
+DROP TABLE IF EXISTS role;
 DROP TABLE IF EXISTS policy;
+DROP TABLE IF EXISTS user;
 
 CREATE TABLE user (
   user_id SERIAL PRIMARY KEY,
@@ -14,42 +16,68 @@ CREATE TABLE user (
   password TEXT NOT NULL
 );
 
-CREATE TABLE lobby (
-  lobby_id SERIAL PRIMARY KEY,
-  lobby_code VARCHAR(5) NOT NULL,
+CREATE TABLE game (
+  game_id SERIAL PRIMARY KEY,
+  game_code VARCHAR(5) NOT NULL,
   player_count INT NOT NULL,
-  time_created DATETIME NOT NULL
+  private_game BOOLEAN NOT NULL,
+  time_created DATETIME NOT NULL,
+  start_time DATETIME DEFAULT NULL,
+  end_time DATETIME DEFAULT NULL
 );
 
-CREATE TABLE lobby_user (
-  lobby_id INT NOT NULL REFERENCES lobby,
-  user_id INT NOT NULL REFERENCES user
+CREATE TABLE role (
+  role_id INT PRIMARY KEY,
+  secret_identity VARCHAR(7) NOT NULL,
+  party_membership BOOLEAN NOT NULL
+);
+
+CREATE TABLE game_user (
+  game_id INT NOT NULL REFERENCES game,
+  user_id INT NOT NULL REFERENCES user,
+  role_id INT NOT NULL REFERENCES role,
+  username VARCHAR(20) NOT NULL
 );
 
 CREATE TABLE policy (
-  policy_id INT NOT NULL,
-  type TEXT,
-  deckOrder INT,
-  isDiscarded BOOLEAN,
-  isEnacted BOOLEAN,
-  PRIMARY KEY(policy_id)
+  policy_id INT PRIMARY KEY,
+  is_fascist BOOLEAN NOT NULL
 );
 
-INSERT INTO policy VALUES (1, "Liberal", 0, 0, 0);
-INSERT INTO policy VALUES (2, "Liberal", 1, 0, 0);
-INSERT INTO policy VALUES (3, "Liberal", 2, 0, 0);
-INSERT INTO policy VALUES (4, "Liberal", 3, 0, 0);
-INSERT INTO policy VALUES (5, "Liberal", 4, 0, 0);
-INSERT INTO policy VALUES (6, "Liberal", 5, 0, 0);
+CREATE TABLE game_policy (
+  game_id INT NOT NULL REFERENCES game,
+  policy_id INT REFERENCES policy,
+  deck_order INT NOT NULL,
+  is_discarded BOOLEAN NOT NULL,
+  is_enacted BOOLEAN NOT NULL
+);
 
-INSERT INTO policy VALUES (7, "Fascist", 6, 0, 0);
-INSERT INTO policy VALUES (8, "Fascist", 7, 0, 0);
-INSERT INTO policy VALUES (9, "Fascist", 8, 0, 0);
-INSERT INTO policy VALUES (10, "Fascist", 9, 0, 0);
-INSERT INTO policy VALUES (11, "Fascist", 10, 0, 0);
-INSERT INTO policy VALUES (12, "Fascist", 11, 0, 0);
-INSERT INTO policy VALUES (13, "Fascist", 12, 0, 0);
-INSERT INTO policy VALUES (14, "Fascist", 13, 0, 0);
-INSERT INTO policy VALUES (15, "Fascist", 14, 0, 0);
-INSERT INTO policy VALUES (16, "Fascist", 15, 0, 0);
-INSERT INTO policy VALUES (17, "Fascist", 16, 0, 0);
+INSERT INTO role VALUES (1, "Hitler", 1);
+INSERT INTO role VALUES (2, "Fascist", 1);
+INSERT INTO role VALUES (3, "Liberal", 0);
+INSERT INTO role VALUES (4, "Liberal", 0);
+INSERT INTO role VALUES (5, "Liberal", 0);
+INSERT INTO role VALUES (6, "Liberal", 0);
+INSERT INTO role VALUES (7, "Fascist", 1);
+INSERT INTO role VALUES (8, "Liberal", 0);
+INSERT INTO role VALUES (9, "Fascist", 1);
+INSERT INTO role VALUES (10, "Liberal", 0);
+
+INSERT INTO policy VALUES (1, 0);
+INSERT INTO policy VALUES (2, 0);
+INSERT INTO policy VALUES (3, 0);
+INSERT INTO policy VALUES (4, 0);
+INSERT INTO policy VALUES (5, 0);
+INSERT INTO policy VALUES (6, 0);
+
+INSERT INTO policy VALUES (7, 1);
+INSERT INTO policy VALUES (8, 1);
+INSERT INTO policy VALUES (9, 1);
+INSERT INTO policy VALUES (10, 1);
+INSERT INTO policy VALUES (11, 1);
+INSERT INTO policy VALUES (12, 1);
+INSERT INTO policy VALUES (13, 1);
+INSERT INTO policy VALUES (14, 1);
+INSERT INTO policy VALUES (15, 1);
+INSERT INTO policy VALUES (16, 1);
+INSERT INTO policy VALUES (17, 1);
