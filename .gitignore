@@ -2,7 +2,6 @@
 package-lock.json
 node_modules/
 --data
-schema.sql
 credentials.json
 emailCredentials.json
 jwt.json
