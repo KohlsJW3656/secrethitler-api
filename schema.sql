@@ -1,6 +1,8 @@
+DROP TABLE IF EXISTS game_user_action;
 DROP TABLE IF EXISTS game_user;
 DROP TABLE IF EXISTS game_policy;
 DROP TABLE IF EXISTS game;
+DROP TABLE IF EXISTS action;
 DROP TABLE IF EXISTS role;
 DROP TABLE IF EXISTS policy;
 DROP TABLE IF EXISTS user;
@@ -32,24 +34,48 @@ CREATE TABLE role (
   party_membership BOOLEAN NOT NULL
 );
 
-CREATE TABLE game_user (
-  game_id INT NOT NULL REFERENCES game,
-  user_id INT NOT NULL REFERENCES user,
-  role_id INT NOT NULL REFERENCES role,
-  username VARCHAR(20) NOT NULL
-);
-
 CREATE TABLE policy (
   policy_id INT PRIMARY KEY,
   is_fascist BOOLEAN NOT NULL
 );
 
+CREATE TABLE action (
+  action_id SERIAL PRIMARY KEY,
+  action_preformed TEXT NOT NULL
+);
+
+CREATE TABLE game_user (
+  game_id BIGINT UNSIGNED NOT NULL UNIQUE,
+  user_id BIGINT UNSIGNED NOT NULL UNIQUE,
+  role_id INT NOT NULL UNIQUE,
+  username VARCHAR(20) NOT NULL,
+  FOREIGN KEY(game_id) REFERENCES game(game_id),
+  FOREIGN KEY(user_id) REFERENCES user(user_id),
+  FOREIGN KEY(role_id) REFERENCES role(role_id)
+);
+
 CREATE TABLE game_policy (
-  game_id INT NOT NULL REFERENCES game,
-  policy_id INT REFERENCES policy,
+  game_id BIGINT UNSIGNED NOT NULL UNIQUE,
+  policy_id INT NOT NULL UNIQUE,
   deck_order INT NOT NULL,
   is_discarded BOOLEAN NOT NULL,
-  is_enacted BOOLEAN NOT NULL
+  is_enacted BOOLEAN NOT NULL,
+  FOREIGN KEY(game_id) REFERENCES game(game_id),
+  FOREIGN KEY(policy_id) REFERENCES policy(policy_id)
+);
+
+CREATE TABLE game_user_action (
+  game_id BIGINT UNSIGNED NOT NULL UNIQUE,
+  user_id BIGINT UNSIGNED NOT NULL UNIQUE,
+  role_id INT NOT NULL UNIQUE,
+  action_id BIGINT UNSIGNED NOT NULL UNIQUE,
+  policy_id INT NOT NULL UNIQUE,
+  timestamp DATETIME NOT NULL,
+  FOREIGN KEY(game_id) REFERENCES game_user(game_id),
+  FOREIGN KEY(user_id) REFERENCES game_user(user_id),
+  FOREIGN KEY(role_id) REFERENCES game_user(role_id),
+  FOREIGN KEY(action_id) REFERENCES action(action_id),
+  FOREIGN KEY(policy_id) REFERENCES game_policy(policy_id)
 );
 
 INSERT INTO role VALUES (1, "Hitler", 1);
