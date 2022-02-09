@@ -55,20 +55,19 @@ const io = require("socket.io")(server, {
   },
 });
 let socketCount = 0;
-let lobbyPlayerCount = 0;
 
 io.on("connection", (socket) => {
   socketCount++;
   io.sockets.emit("users-conneceted", socketCount);
   console.log("Users connected", socketCount);
 
-  socket.on("joinLobby", (data) => {
-    let lobbyUsers = [];
+  socket.on("join-game", (data) => {
+    let gameUsers = [];
 
     connection
-      .query("SELECT * FROM lobby_user ORDER BY username ASC")
+      .query("SELECT * FROM game_user ORDER BY username ASC")
       .on("result", (row) => {
-        lobbyUsers.push(row);
+        gameUsers.push(row);
       })
       .on("end", () => {
         let policies = allPolicies1();

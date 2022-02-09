@@ -11,12 +11,12 @@ router.patch("/user/resetpassword", authenticateToken, user.resetPassword);
 router.patch("/user/edit", authenticateToken, user.edit);
 router.get("/user", authenticateToken, user.get);
 
-const lobby = require("./controllers/lobby");
-router.delete("/lobby/delete", authenticateToken, lobby.deleteLobby);
-router.post("/lobby/create", authenticateToken, lobby.createLobby);
-router.get("/lobby/all", authenticateToken, lobby.allLobbies);
-router.get("/lobby/all/public", authenticateToken, lobby.allPublic);
-router.get("/lobby/all/private", authenticateToken, lobby.allPrivate);
+const game = require("./controllers/game");
+router.delete("/game/delete", authenticateToken, game.deleteGame);
+router.post("/game/create", authenticateToken, game.createGame);
+router.get("/game/all", authenticateToken, game.allGames);
+router.get("/game/all/public", authenticateToken, game.allPublic);
+router.get("/game/all/private", authenticateToken, game.allPrivate);
 
 //Policy routes
 const policy = require("./controllers/policy");

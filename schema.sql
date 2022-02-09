@@ -176,6 +176,6 @@ INSERT INTO action(name, game_action) VALUES ("Called Special Election", 0);
 INSERT INTO action(name, game_action) VALUES ("Examined top 3 policies", 0);
 INSERT INTO action(name, game_action) VALUES ("Executed", 0);
 
-
-INSERT INTO rule(name, description) VALUES ("Anonymous voting", "Player ballots are not shown during and after voting");
-INSERT INTO rule(name, description) VALUES ("Previous presidential powers", "If the group rejects three governments in a row, any power granted by the enacted policy is granted to the previously elected president");
+INSERT INTO rule(name, description) VALUES ("Shadow Democracy", "Player ballots are not shown during and after voting");
+INSERT INTO rule(name, description) VALUES ("Political Leverage", "If the group rejects three governments in a row, any power granted by the enacted policy is granted to the previously elected president");
+INSERT INTO rule(name, description) VALUES ("Underground Nazi Network", "Fascist players, excluding Hitler, will see who their other teammates are for the duration of the game");
