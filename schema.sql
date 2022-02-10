@@ -21,7 +21,7 @@ CREATE TABLE user (
 );
 
 CREATE TABLE role (
-  role_id SERIAL PRIMARY KEY,
+  role_id INT PRIMARY KEY,
   secret_identity VARCHAR(7) NOT NULL,
   party_membership BOOLEAN NOT NULL
 );
@@ -64,13 +64,13 @@ CREATE TABLE game_user (
   game_user_id SERIAL PRIMARY KEY,
   game_id BIGINT UNSIGNED NOT NULL,
   user_id BIGINT UNSIGNED NOT NULL,
-  role_id BIGINT UNSIGNED NOT NULL,
+  role_id INT NOT NULL,
   username VARCHAR(20) NOT NULL,
-  president BOOLEAN NOT NULL,
-  chancellor BOOLEAN NOT NULL,
-  prev_president BOOLEAN NOT NULL,
-  prev_chancellor BOOLEAN NOT NULL,
-  confirmed_not_hitler BOOLEAN NOT NULL,
+  president BOOLEAN NOT NULL DEFAULT 0,
+  chancellor BOOLEAN NOT NULL DEFAULT 0,
+  prev_president BOOLEAN NOT NULL DEFAULT 0,
+  prev_chancellor BOOLEAN NOT NULL DEFAULT 0,
+  confirmed_not_hitler BOOLEAN NOT NULL DEFAULT 0,
   FOREIGN KEY(game_id) REFERENCES game(game_id),
   FOREIGN KEY(user_id) REFERENCES user(user_id),
   FOREIGN KEY(role_id) REFERENCES role(role_id)
@@ -99,16 +99,17 @@ CREATE TABLE game_user_action (
   FOREIGN KEY(game_policy_id) REFERENCES game_policy(game_policy_id)
 );
 
-INSERT INTO role(secret_identity, party_membership) VALUES ("Hitler", 1);
-INSERT INTO role(secret_identity, party_membership) VALUES ("Fascist", 1);
-INSERT INTO role(secret_identity, party_membership) VALUES ("Liberal", 0);
-INSERT INTO role(secret_identity, party_membership) VALUES ("Liberal", 0);
-INSERT INTO role(secret_identity, party_membership) VALUES ("Liberal", 0);
-INSERT INTO role(secret_identity, party_membership) VALUES ("Liberal", 0);
-INSERT INTO role(secret_identity, party_membership) VALUES ("Fascist", 1);
-INSERT INTO role(secret_identity, party_membership) VALUES ("Liberal", 0);
-INSERT INTO role(secret_identity, party_membership) VALUES ("Fascist", 1);
-INSERT INTO role(secret_identity, party_membership) VALUES ("Liberal", 0);
+INSERT INTO role VALUES (0, "Temp", 0);
+INSERT INTO role VALUES (1, "Hitler", 1);
+INSERT INTO role VALUES (2, "Fascist", 1);
+INSERT INTO role VALUES (3, "Liberal", 0);
+INSERT INTO role VALUES (4, "Liberal", 0);
+INSERT INTO role VALUES (5, "Liberal", 0);
+INSERT INTO role VALUES (6, "Liberal", 0);
+INSERT INTO role VALUES (7, "Fascist", 1);
+INSERT INTO role VALUES (8, "Liberal", 0);
+INSERT INTO role VALUES (9, "Fascist", 1);
+INSERT INTO role VALUES (10, "Liberal", 0);
 
 INSERT INTO policy(fascist) VALUES (0);
 INSERT INTO policy(fascist) VALUES (0);
