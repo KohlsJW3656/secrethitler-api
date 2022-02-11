@@ -62,45 +62,34 @@ io.on("connection", (socket) => {
   console.log("Users connected", socketCount);
 
   socket.on("join-game", (data) => {
-    let gameUsers = [];
+    let username = data.username;
+    let gameId = data.game_id;
+    const query =
+      "SELECT * FROM game_user WHERE game_user.game_id = ? ORDER BY username ASC";
+    const params = [gameId];
 
-    connection
-      .query("SELECT * FROM game_user ORDER BY username ASC")
-      .on("result", (row) => {
-        gameUsers.push(row);
-      })
-      .on("end", () => {
-        let policies = allPolicies1();
-        let username = data.username;
-        let lobbyCode = data.lobbyCode;
-        console.log(policies);
-        console.log(lobbyUsers);
-        socket.join(lobbyCode);
-        console.log(username + " has joined Lobby " + lobbyCode);
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        console.log(error);
+      } else {
+        socket.join(gameId);
+        console.log(username + " has joined Game " + gameId);
 
-        lobbyPlayerCount++;
-
-        io.to(lobbyCode).emit("connectToRoom", {
-          lobbyCode,
-          lobbyUsers,
-          lobbyPlayerCount,
-          policies,
+        io.to(gameId).emit("connectToRoom", {
+          result,
         });
-
-        socket.user = username;
-      });
+      }
+    });
   });
 
   socket.on("disconnect", () => {
-    const { user } = socket;
-    if (user) {
-      lobbyPlayerCount--;
-      lobbyUsers.pop();
-      io.to(socket.room).emit("connectToRoom", {
-        lobbyUsers,
-        lobbyPlayerCount,
-      });
-    }
+    // const { user } = socket;
+    // if (user) {
+    //   gameUsers.pop();
+    //   io.to(socket.room).emit("connectToRoom", {
+    //     gameUsers,
+    //   });
+    // }
     socketCount--;
     io.sockets.emit("users-conneceted", socketCount);
     console.log("Users connected", socketCount);

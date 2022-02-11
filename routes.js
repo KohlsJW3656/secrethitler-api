@@ -11,12 +11,18 @@ router.patch("/user/resetpassword", authenticateToken, user.resetPassword);
 router.patch("/user/edit", authenticateToken, user.edit);
 router.get("/user", authenticateToken, user.get);
 
+//Game routes
 const game = require("./controllers/game");
 router.delete("/game/delete", authenticateToken, game.deleteGame);
 router.post("/game/create", authenticateToken, game.createGame);
 router.get("/game/all", authenticateToken, game.allGames);
+router.get("/game/all/joinable", authenticateToken, game.allJoinable);
 router.get("/game/all/public", authenticateToken, game.allPublic);
 router.get("/game/all/private", authenticateToken, game.allPrivate);
+
+//Gameuser routes
+const gameUser = require("./controllers/gameuser");
+router.post("/gameuser/join", authenticateToken, gameUser.joinGame);
 
 //Policy routes
 const policy = require("./controllers/policy");

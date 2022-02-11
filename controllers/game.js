@@ -72,6 +72,25 @@ exports.allGames = async (req, res) => {
 };
 
 /*
+  Route: /game/all/joinable
+  Selects all games that are not in progress
+*/
+exports.allJoinable = async (req, res) => {
+  const query =
+    "SELECT * FROM game WHERE game.start_time IS NULL ORDER BY game_id ASC";
+
+  connection.query(query, (error, results) => {
+    if (error) {
+      console.log(error);
+    }
+    res.send({
+      ok: true,
+      joinableGames: results,
+    });
+  });
+};
+
+/*
   Route: /game/all/public
   Selects all public games
 */
