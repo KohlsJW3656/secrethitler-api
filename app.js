@@ -55,15 +55,37 @@ const io = require("socket.io")(server, {
   },
 });
 let socketCount = 0;
+const connectedUsers = new Map();
 
 io.on("connection", (socket) => {
   socketCount++;
   io.sockets.emit("users-conneceted", socketCount);
   console.log("Users connected", socketCount);
 
+  socket.on("login", (data) => {
+    let userId = data.userId;
+    /* If first login, add user to map, set gameId to 0 */
+    if (!connectedUsers.has(userId)) {
+      //Get current game the user is in, if they are in a game, redirect them to that game
+      connectedUsers.set(userId, 0);
+    } else {
+      /* User is already logged in and in a game, prevent them from logging in */
+      if (connectedUsers.get(userId) !== 0) {
+      } else {
+      /* User is already logged in and not in a game, prevent them from logging in */
+      }
+    }
+  });
+
   socket.on("join-game", (data) => {
+    let userId = data.userId;
     let username = data.username;
     let gameId = data.game_id;
+
+    if (connectedUsers.has(userId)) {
+      connectedUsers.set(userId, gameId);
+    }
+
     const query =
       "SELECT * FROM game_user WHERE game_user.game_id = ? ORDER BY username ASC";
     const params = [gameId];
@@ -75,6 +97,7 @@ io.on("connection", (socket) => {
         socket.join(gameId);
         console.log(username + " has joined Game " + gameId);
 
+        /* Send updated list of game users to lobby */
         io.to(gameId).emit("connectToRoom", {
           result,
         });
