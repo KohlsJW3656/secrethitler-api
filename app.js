@@ -10,7 +10,7 @@ var allowedOrigins = [
 ];
 app.use(
   cors({
-    origin: function (origin, callback) {
+    origin: (origin, callback) => {
       // allow requests with no origin
       // (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
@@ -26,7 +26,7 @@ app.use(
   })
 );
 
-app.use(function (req, res, next) {
+app.use((req, res, next) => {
   res.header("Content-Type", "application/json;charset=UTF-8");
   res.header("Access-Control-Allow-Credentials", true);
   res.header(
@@ -39,7 +39,6 @@ app.use(function (req, res, next) {
 app.use(express.json());
 
 const bodyParser = require("body-parser");
-const { allPolicies1 } = require("./controllers/policy");
 const connection = require("./connection");
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -54,7 +53,6 @@ const io = require("socket.io")(server, {
     methods: ["GET", "POST"],
   },
 });
-let socketCount = 0;
 const connectedUsers = new Map();
 
 const contains = (map, val) => {
@@ -66,57 +64,136 @@ const contains = (map, val) => {
   return false;
 };
 
-io.on("connection", (socket) => {
-  socketCount++;
-  io.sockets.emit("users-connected", socketCount);
-  console.log("Users connected", socketCount);
+const getGameUsers = (gameId, username) => {
+  const query =
+    "SELECT * FROM game_user WHERE game_id = ? ORDER BY username ASC";
+  const params = [gameId];
 
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject(error);
+      }
+      return resolve(result);
+    });
+  });
+};
+
+const checkGameLobbyStatus = (gameId) => {
+  const query =
+    "SELECT * FROM game WHERE game.game_id = ? && game.start_time IS NULL";
+  const params = [gameId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject(error);
+      }
+
+      if (result.length === 0) {
+        //No game exists with id that is a lobby
+        return resolve(false);
+      } else {
+        //A game exists with id that is a lobby
+        return resolve(true);
+      }
+    });
+  });
+};
+
+/* Deletes a user from all lobbies */
+const deleteUserFromAllLobbies = (userId) => {
+  const query =
+    "DELETE game_user FROM game_user JOIN game ON game_user.game_id = game.game_id WHERE game.start_time IS NULL AND user_id = ?";
+  const params = [userId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      } else {
+        return resolve(result);
+      }
+    });
+  });
+};
+
+const disconnect = (socketId) => {
+  connectedUsers.delete(socketId);
+  console.log(connectedUsers.values());
+  io.sockets.emit("users-connected", connectedUsers.size);
+  console.log("Users connected", connectedUsers.size);
+};
+
+io.on("connection", (socket) => {
   socket.on("login", (data) => {
     let userId = data.user_id;
     /* First login, add them to the map */
     if (!contains(connectedUsers, userId)) {
       connectedUsers.set(socket.id, userId);
+      io.to(socket.id).emit("login");
+      io.sockets.emit("users-connected", connectedUsers.size);
+      console.log("Users connected", connectedUsers.size);
       console.log(connectedUsers.values());
     } else {
       /* User is already logged in, prevent the login */
+      io.to(socket.id).emit("logout", "User already logged in");
+      console.log("User " + userId + " attempted to login twice!");
     }
   });
 
-  socket.on("join-game", (data) => {
+  socket.on("join-game", async (data) => {
     let username = data.username;
     let gameId = data.game_id;
 
-    const query =
-      "SELECT * FROM game_user WHERE game_user.game_id = ? ORDER BY username ASC";
-    const params = [gameId];
+    let result = await getGameUsers(gameId, username);
+    if (result) {
+      socket.join(gameId);
+      console.log(username + " has joined Game " + gameId);
 
-    connection.query(query, params, (error, result) => {
-      if (error) {
-        console.log(error);
-      } else {
-        socket.join(gameId);
-        console.log(username + " has joined Game " + gameId);
+      /* Send updated list of game users to lobby */
+      io.to(gameId).emit("connectToRoom", {
+        result,
+      });
+    }
+  });
 
-        /* Send updated list of game users to lobby */
-        io.to(gameId).emit("connectToRoom", {
-          result,
-        });
-      }
+  socket.on("leave-game", async (data) => {
+    let gameId = data.gameId;
+    let gameUserId = data.gameUserId;
+    let username = data.username;
+
+    let isLobby = await checkGameLobbyStatus(gameId);
+    if (!isLobby) return;
+
+    /* Delete user from game */
+    await new Promise((resolve, reject) => {
+      const query2 = "DELETE FROM game_user WHERE game_user_id = ?";
+      const params2 = [gameUserId];
+
+      connection.query(query2, params2, (error, result) => {
+        if (error) {
+          return reject();
+        } else {
+          return resolve(result);
+        }
+      });
     });
+
+    /* Grab all users in game */
+    let result = await getGameUsers(gameId, username);
+    if (result) {
+      /* Send updated list of game users to lobby */
+      io.to(gameId).emit("connectToRoom", {
+        result,
+      });
+      socket.leave(gameId);
+      console.log(username + " has left Game " + gameId);
+    }
   });
 
-  socket.on("logout", () => {
-    connectedUsers.delete(socket.id);
-    console.log(connectedUsers.values());
-  });
-
-  socket.on("disconnect", () => {
-    connectedUsers.delete(socket.id);
-    console.log(connectedUsers.values());
-    socketCount--;
-    io.sockets.emit("users-connected", socketCount);
-    console.log("Users connected", socketCount);
-  });
+  socket.on("logout", () => disconnect(socket.id));
+  socket.on("disconnect", () => disconnect(socket.id));
 });
 
 const PORT = 3445;
