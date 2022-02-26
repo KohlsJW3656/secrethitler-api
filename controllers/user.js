@@ -17,18 +17,18 @@ exports.create = async (req, res) => {
   if (!userExists) {
     //No user exists, so generate insert query
     const query =
-      "INSERT INTO user(first_name, last_name, email, account_type, last_used, password) VALUES (?, ?, ?, ?, now(), ?)";
+      "INSERT INTO user(first_name, last_name, email, verified, account_type, last_used, password) VALUES (?, ?, ?, ?, ?, now(), ?)";
 
     //Hash the password
     let password = await bcrypt.hash(req.body.password, saltRounds);
-    let account = 0;
 
     //Params for prepared SQL
     const params = [
       req.body.first_name,
       req.body.last_name,
       req.body.email,
-      account,
+      0,
+      0,
       password,
     ];
 

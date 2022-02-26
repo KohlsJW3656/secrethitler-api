@@ -64,7 +64,24 @@ const contains = (map, val) => {
   return false;
 };
 
-const getGameUsers = (gameId, username) => {
+/* Gets all lobbies a user is in */
+const getUserLobbies = (userId) => {
+  const query =
+    "SELECT game.game_id, game_user_id, username FROM game JOIN game_user ON game.game_id = game_user.game_id WHERE start_time IS NULL AND user_id = ?";
+  const params = [userId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+      return resolve(result);
+    });
+  });
+};
+
+/* Grabs all users from a game */
+const getGameUsers = (gameId) => {
   const query =
     "SELECT * FROM game_user WHERE game_id = ? ORDER BY username ASC";
   const params = [gameId];
@@ -72,7 +89,7 @@ const getGameUsers = (gameId, username) => {
   return new Promise((resolve, reject) => {
     connection.query(query, params, (error, result) => {
       if (error) {
-        return reject(error);
+        return reject();
       }
       return resolve(result);
     });
@@ -87,7 +104,7 @@ const checkGameLobbyStatus = (gameId) => {
   return new Promise((resolve, reject) => {
     connection.query(query, params, (error, result) => {
       if (error) {
-        return reject(error);
+        return reject();
       }
 
       if (result.length === 0) {
@@ -101,26 +118,48 @@ const checkGameLobbyStatus = (gameId) => {
   });
 };
 
-/* Deletes a user from all lobbies */
-const deleteUserFromAllLobbies = (userId) => {
-  const query =
-    "DELETE game_user FROM game_user JOIN game ON game_user.game_id = game.game_id WHERE game.start_time IS NULL AND user_id = ?";
-  const params = [userId];
+/* Deletes a user from a lobby */
+const deleteUserFromLobby = (gameUserId) => {
+  const query = "DELETE FROM game_user WHERE game_user_id = ?";
+  const params = [gameUserId];
 
   return new Promise((resolve, reject) => {
     connection.query(query, params, (error, result) => {
       if (error) {
         return reject();
+      }
+
+      if (result.affectedRows === 0) {
+        return resolve(false);
       } else {
-        return resolve(result);
+        return resolve(true);
       }
     });
   });
 };
 
-const disconnect = (socketId) => {
-  connectedUsers.delete(socketId);
-  console.log(connectedUsers.values());
+const disconnect = async (socket) => {
+  let userLobbies = await getUserLobbies(connectedUsers.get(socket.id));
+  if (!userLobbies) return;
+
+  userLobbies.map(async (userLobby) => {
+    let deleted = await deleteUserFromLobby(userLobby.game_user_id);
+    if (deleted) {
+      /* Grab all users in game */
+      let result = await getGameUsers(userLobby.game_id);
+      if (result) {
+        /* Send updated list of game users to lobby */
+        io.to(userLobby.game_id).emit("connectToRoom", {
+          result,
+        });
+        socket.leave(userLobby.game_id);
+        console.log(userLobby.username + " has left Game " + userLobby.game_id);
+      }
+    }
+  });
+
+  connectedUsers.delete(socket.id);
+  console.table(connectedUsers.values());
   io.sockets.emit("users-connected", connectedUsers.size);
   console.log("Users connected", connectedUsers.size);
 };
@@ -134,7 +173,7 @@ io.on("connection", (socket) => {
       io.to(socket.id).emit("login");
       io.sockets.emit("users-connected", connectedUsers.size);
       console.log("Users connected", connectedUsers.size);
-      console.log(connectedUsers.values());
+      console.table(connectedUsers.values());
     } else {
       /* User is already logged in, prevent the login */
       io.to(socket.id).emit("logout", "User already logged in");
@@ -181,7 +220,7 @@ io.on("connection", (socket) => {
     });
 
     /* Grab all users in game */
-    let result = await getGameUsers(gameId, username);
+    let result = await getGameUsers(gameId);
     if (result) {
       /* Send updated list of game users to lobby */
       io.to(gameId).emit("connectToRoom", {
@@ -192,8 +231,8 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("logout", () => disconnect(socket.id));
-  socket.on("disconnect", () => disconnect(socket.id));
+  socket.on("logout", () => disconnect(socket));
+  socket.on("disconnect", () => disconnect(socket));
 });
 
 const PORT = 3445;
