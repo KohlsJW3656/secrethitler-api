@@ -96,6 +96,25 @@ const getGameUsers = (gameId) => {
   });
 };
 
+const deleteGame = (gameId) => {
+  const query = "DELETE FROM game WHERE game_id = ?";
+  const params = [gameId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+
+      if (result.affectedRows === 0) {
+        return resolve(false);
+      } else {
+        return resolve(true);
+      }
+    });
+  });
+};
+
 const checkGameLobbyStatus = (gameId) => {
   const query =
     "SELECT * FROM game WHERE game.game_id = ? && game.start_time IS NULL";
@@ -154,6 +173,7 @@ const disconnect = async (socket) => {
         });
         socket.leave(userLobby.game_id);
         console.log(userLobby.username + " has left Game " + userLobby.game_id);
+        if (result.length === 0) await deleteGame(userLobby.game_id);
       }
     }
   });
