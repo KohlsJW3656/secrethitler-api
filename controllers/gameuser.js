@@ -20,3 +20,21 @@ exports.joinGame = async (req, res) => {
     });
   });
 };
+
+/*
+  Route: /gameuser/kick
+  Deletes a user from a lobby
+*/
+exports.kickGameUser = async (req, res) => {
+  const query = "DELETE FROM game_user WHERE game_user_id = ?";
+  const params = [req.body.game_user_id];
+
+  connection.query(query, params, (error, result) => {
+    if (error) {
+      console.log(error);
+    }
+    res.send({
+      ok: true,
+    });
+  });
+};

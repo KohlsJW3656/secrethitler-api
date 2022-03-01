@@ -22,6 +22,7 @@ router.get("/game/all/private", authenticateToken, game.allPrivate);
 
 //Gameuser routes
 const gameUser = require("./controllers/gameuser");
+router.delete("/gameuser/kick", authenticateToken, gameUser.kickGameUser);
 router.post("/gameuser/join", authenticateToken, gameUser.joinGame);
 
 //Policy routes

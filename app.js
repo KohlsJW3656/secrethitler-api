@@ -55,9 +55,11 @@ const io = require("socket.io")(server, {
 });
 const connectedUsers = new Map();
 
-const contains = (map, val) => {
-  for (let v of map.values()) {
-    if (v === val) {
+const getKey = (map, value) => [...map].find(([key, val]) => val == value)[0];
+
+const contains = (map, value) => {
+  for (let val of map.values()) {
+    if (val === value) {
       return true;
     }
   }
@@ -82,8 +84,7 @@ const getUserLobbies = (userId) => {
 
 /* Grabs all users from a game */
 const getGameUsers = (gameId) => {
-  const query =
-    "SELECT * FROM game_user WHERE game_id = ? ORDER BY username ASC";
+  const query = "SELECT * FROM game_user WHERE game_id = ?";
   const params = [gameId];
 
   return new Promise((resolve, reject) => {
@@ -181,7 +182,7 @@ const disconnect = async (socket) => {
   connectedUsers.delete(socket.id);
   console.table(connectedUsers.values());
   io.sockets.emit("users-connected", connectedUsers.size);
-  console.log("Users connected", connectedUsers.size);
+  console.log("Connected Users: ", connectedUsers.size);
 };
 
 io.on("connection", (socket) => {
@@ -205,7 +206,7 @@ io.on("connection", (socket) => {
     let username = data.username;
     let gameId = data.game_id;
 
-    let result = await getGameUsers(gameId, username);
+    let result = await getGameUsers(gameId);
     if (result) {
       socket.join(gameId);
       console.log(username + " has joined Game " + gameId);
@@ -225,29 +226,49 @@ io.on("connection", (socket) => {
     let isLobby = await checkGameLobbyStatus(gameId);
     if (!isLobby) return;
 
-    /* Delete user from game */
-    await new Promise((resolve, reject) => {
-      const query2 = "DELETE FROM game_user WHERE game_user_id = ?";
-      const params2 = [gameUserId];
+    let deleted = await deleteUserFromLobby(gameUserId);
+    if (deleted) {
+      /* Grab all users in game */
+      let result = await getGameUsers(gameId);
+      if (result) {
+        /* Send updated list of game users to lobby */
+        io.to(gameId).emit("connectToRoom", {
+          result,
+        });
+        socket.leave(gameId);
+        console.log(username + " has left Game " + gameId);
+        if (result.length === 0) await deleteGame(gameId);
+      }
+    }
+  });
 
-      connection.query(query2, params2, (error, result) => {
-        if (error) {
-          return reject();
-        } else {
-          return resolve(result);
-        }
-      });
-    });
+  /* Kicks a user from a lobby */
+  socket.on("kick-user", async (data) => {
+    let gameUserId = data.gameUserId;
+    let gameId = data.gameId;
+    let userId = data.userId;
+    let username = data.username;
 
-    /* Grab all users in game */
-    let result = await getGameUsers(gameId);
-    if (result) {
-      /* Send updated list of game users to lobby */
-      io.to(gameId).emit("connectToRoom", {
-        result,
-      });
-      socket.leave(gameId);
-      console.log(username + " has left Game " + gameId);
+    let deleted = await deleteUserFromLobby(gameUserId);
+    if (deleted) {
+      let targetSocketId = getKey(connectedUsers, userId);
+      io.to(targetSocketId).emit(
+        "kicked",
+        "You have been kicked from game " + gameId + "!"
+      );
+
+      io.sockets.sockets.get(targetSocketId).leave(gameId);
+      console.log(username + " has been kicked from Game " + gameId);
+
+      /* Grab all users in game */
+      let result = await getGameUsers(gameId);
+      if (result) {
+        /* Send updated list of game users to lobby */
+        io.to(gameId).emit("connectToRoom", {
+          result,
+        });
+        if (result.length === 0) await deleteGame(gameId);
+      }
     }
   });
 
