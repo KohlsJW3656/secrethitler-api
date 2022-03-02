@@ -20,6 +20,10 @@ router.get("/game/all/joinable", authenticateToken, game.allJoinable);
 router.get("/game/all/public", authenticateToken, game.allPublic);
 router.get("/game/all/private", authenticateToken, game.allPrivate);
 
+//Rule routes
+const rule = require("./controllers/rule");
+router.get("/rule/all", authenticateToken, rule.allRules);
+
 //Gameuser routes
 const gameUser = require("./controllers/gameuser");
 router.delete("/gameuser/kick", authenticateToken, gameUser.kickGameUser);

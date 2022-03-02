@@ -1,4 +1,6 @@
 const connection = require("../connection");
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 
 /*
   Route: /game/delete
@@ -37,9 +39,14 @@ exports.deleteGame = async (req, res) => {
   Creates a game
 */
 exports.createGame = async (req, res) => {
+  let password;
   const query =
-    "INSERT INTO game(game_code, private_game, created_time) VALUES (?, ?, NOW())";
-  const params = [req.body.game_code, req.body.private_game];
+    "INSERT INTO game(private_game, created_time, password) VALUES (?, NOW(), ?)";
+
+  if (req.body.password) {
+    password = await bcrypt.hash(req.body.password, saltRounds);
+  }
+  const params = [req.body.private_game, password];
 
   //Connect to the database and run the query
   connection.query(query, params, (error, result) => {

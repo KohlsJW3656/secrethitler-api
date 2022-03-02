@@ -45,11 +45,12 @@ CREATE TABLE rule (
 
 CREATE TABLE game (
   game_id SERIAL PRIMARY KEY,
-  game_code VARCHAR(5) NOT NULL,
+  -- game_code VARCHAR(5) NOT NULL,
   private_game BOOLEAN NOT NULL,
   created_time DATETIME NOT NULL,
   start_time DATETIME DEFAULT NULL,
-  end_time DATETIME DEFAULT NULL
+  end_time DATETIME DEFAULT NULL,
+  password TEXT,
 );
 
 CREATE TABLE game_rule (
@@ -65,7 +66,7 @@ CREATE TABLE game_user (
   game_id BIGINT UNSIGNED NOT NULL,
   user_id BIGINT UNSIGNED NOT NULL,
   role_id INT NOT NULL,
-  username VARCHAR(20) NOT NULL,
+  username VARCHAR(200) NOT NULL,
   president BOOLEAN NOT NULL DEFAULT 0,
   chancellor BOOLEAN NOT NULL DEFAULT 0,
   prev_president BOOLEAN NOT NULL DEFAULT 0,
