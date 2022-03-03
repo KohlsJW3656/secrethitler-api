@@ -94,8 +94,8 @@ exports.joinGame = async (req, res) => {
   }
 
   const query =
-    "INSERT INTO game_user(game_id, user_id, role_id, username) VALUES (?, ?, ?, ?)";
-  const params = [gameId, req.user.user_id, 0, req.body.username];
+    "INSERT INTO game_user(game_id, user_id, username) VALUES (?, ?, ?)";
+  const params = [gameId, req.user.user_id, req.body.username];
 
   //Connect to the database and run the query
   connection.query(query, params, (error, result) => {

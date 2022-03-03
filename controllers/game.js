@@ -41,12 +41,12 @@ exports.deleteGame = async (req, res) => {
 exports.createGame = async (req, res) => {
   let password;
   const query =
-    "INSERT INTO game(private_game, created_time, password) VALUES (?, NOW(), ?)";
+    "INSERT INTO game(name, private_game, created_time, password) VALUES (?, ?, NOW(), ?)";
 
   if (req.body.password) {
     password = await bcrypt.hash(req.body.password, saltRounds);
   }
-  const params = [req.body.private_game, password];
+  const params = [req.body.name, req.body.private_game, password];
 
   //Connect to the database and run the query
   connection.query(query, params, (error, result) => {

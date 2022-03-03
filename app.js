@@ -178,9 +178,8 @@ const disconnect = async (socket) => {
       }
     }
   });
-
+  console.log("User " + connectedUsers.get(socket.id) + " disconnected.");
   connectedUsers.delete(socket.id);
-  console.table(connectedUsers.values());
   io.sockets.emit("users-connected", connectedUsers.size);
   console.log("Connected Users: ", connectedUsers.size);
 };
@@ -193,8 +192,8 @@ io.on("connection", (socket) => {
       connectedUsers.set(socket.id, userId);
       io.to(socket.id).emit("login");
       io.sockets.emit("users-connected", connectedUsers.size);
-      console.log("Users connected", connectedUsers.size);
-      console.table(connectedUsers.values());
+      console.log("User " + userId + " connected.");
+      console.log("Connected Users: ", connectedUsers.size);
     } else {
       /* User is already logged in, prevent the login */
       io.to(socket.id).emit("logout", "User already logged in");
