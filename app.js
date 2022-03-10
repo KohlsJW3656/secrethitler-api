@@ -138,6 +138,26 @@ const checkGameLobbyStatus = (gameId) => {
   });
 };
 
+/* Toggles a game user's ready status */
+const readyGameUser = (gameUserId, ready) => {
+  const query = "UPDATE game_user SET ready = ? WHERE game_user_id = ?";
+  const params = [ready, gameUserId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+
+      if (result.affectedRows === 0) {
+        return resolve(false);
+      } else {
+        return resolve(true);
+      }
+    });
+  });
+};
+
 /* Deletes a user from a lobby */
 const deleteUserFromLobby = (gameUserId) => {
   const query = "DELETE FROM game_user WHERE game_user_id = ?";
@@ -267,6 +287,34 @@ io.on("connection", (socket) => {
           result,
         });
         if (result.length === 0) await deleteGame(gameId);
+      }
+    }
+  });
+
+  /* Toggle game user's ready status and sends updated player list */
+  socket.on("user-ready", async (data) => {
+    let gameUserId = data.gameUserId;
+    let gameId = data.gameId;
+    let username = data.username;
+    let ready = data.ready;
+
+    let readied = await readyGameUser(gameUserId, ready);
+    if (readied) {
+      console.log(
+        username +
+          " is " +
+          (ready ? "ready" : "not ready") +
+          " in Game " +
+          gameId
+      );
+
+      /* Grab all users in game */
+      let result = await getGameUsers(gameId);
+      if (result) {
+        /* Send updated list of game users to lobby */
+        io.to(gameId).emit("connectToRoom", {
+          result,
+        });
       }
     }
   });
