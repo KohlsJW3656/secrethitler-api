@@ -54,6 +54,7 @@ const io = require("socket.io")(server, {
   },
 });
 const connectedUsers = new Map();
+const timers = new Map();
 
 const getKey = (map, value) => [...map].find(([key, val]) => val == value)[0];
 
@@ -158,6 +159,15 @@ const readyGameUser = (gameUserId, ready) => {
   });
 };
 
+/* validates if a game is ready to start and clears the interval if the timer is already going */
+const readyToStart = (gameUsers, interval) => {
+  let allReady = gameUsers.filter((gameUser) => !gameUser.ready).length === 0;
+  if (gameUsers.length < 5 || !allReady) {
+    clearInterval(interval);
+  }
+  return allReady && gameUsers.length >= 5;
+};
+
 /* Deletes a user from a lobby */
 const deleteUserFromLobby = (gameUserId) => {
   const query = "DELETE FROM game_user WHERE game_user_id = ?";
@@ -194,14 +204,21 @@ const disconnect = async (socket) => {
         });
         socket.leave(userLobby.game_id);
         console.log(userLobby.username + " has left Game " + userLobby.game_id);
-        if (result.length === 0) await deleteGame(userLobby.game_id);
+        if (result.length === 0) {
+          await deleteGame(userLobby.game_id);
+        } else {
+          io.to(userLobby.gameId).emit(
+            "ready-to-start",
+            readyToStart(result, timers.get(userLobby.game_id))
+          );
+        }
       }
     }
   });
   console.log("User " + connectedUsers.get(socket.id) + " disconnected.");
   connectedUsers.delete(socket.id);
   io.sockets.emit("users-connected", connectedUsers.size);
-  console.log("Connected Users: ", connectedUsers.size);
+  console.log("Connected Users:", connectedUsers.size);
 };
 
 io.on("connection", (socket) => {
@@ -213,7 +230,7 @@ io.on("connection", (socket) => {
       io.to(socket.id).emit("login");
       io.sockets.emit("users-connected", connectedUsers.size);
       console.log("User " + userId + " connected.");
-      console.log("Connected Users: ", connectedUsers.size);
+      console.log("Connected Users:", connectedUsers.size);
     } else {
       /* User is already logged in, prevent the login */
       io.to(socket.id).emit("logout", "User already logged in");
@@ -234,6 +251,10 @@ io.on("connection", (socket) => {
       io.to(gameId).emit("connectToRoom", {
         result,
       });
+      io.to(gameId).emit(
+        "ready-to-start",
+        readyToStart(result, timers.get(gameId))
+      );
     }
   });
 
@@ -256,7 +277,14 @@ io.on("connection", (socket) => {
         });
         socket.leave(gameId);
         console.log(username + " has left Game " + gameId);
-        if (result.length === 0) await deleteGame(gameId);
+        if (result.length === 0) {
+          await deleteGame(gameId);
+        } else {
+          io.to(gameId).emit(
+            "ready-to-start",
+            readyToStart(result, timers.get(gameId))
+          );
+        }
       }
     }
   });
@@ -286,7 +314,14 @@ io.on("connection", (socket) => {
         io.to(gameId).emit("connectToRoom", {
           result,
         });
-        if (result.length === 0) await deleteGame(gameId);
+        if (result.length === 0) {
+          await deleteGame(gameId);
+        } else {
+          io.to(gameId).emit(
+            "ready-to-start",
+            readyToStart(result, timers.get(gameId))
+          );
+        }
       }
     }
   });
@@ -315,8 +350,37 @@ io.on("connection", (socket) => {
         io.to(gameId).emit("connectToRoom", {
           result,
         });
+        io.to(gameId).emit(
+          "ready-to-start",
+          readyToStart(result, timers.get(gameId))
+        );
       }
     }
+  });
+
+  socket.on("initialize-start-game", (data) => {
+    let gameId = data.gameId;
+    let time = 10;
+    /* If button pressed more than once, delete other interval */
+    clearInterval(timers.get(gameId));
+    /* With the set interval in the hashmap, there is a 2 second delay, so we must delay the first number by 1 second */
+    setTimeout(() => io.to(gameId).emit("game-timer", time), 1000);
+    timers.set(
+      gameId,
+      setInterval(() => {
+        if (time < 0) {
+          clearInterval(timers.get(gameId));
+          io.to(gameId).emit("start-game");
+          timers.delete(gameId);
+        } else {
+          io.to(gameId).emit("game-timer", time--);
+        }
+      }, 1000)
+    );
+  });
+
+  socket.on("start-game", async (data) => {
+    let gameId = data.gameId;
   });
 
   socket.on("logout", () => disconnect(socket));
