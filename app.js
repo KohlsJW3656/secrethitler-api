@@ -56,6 +56,21 @@ const io = require("socket.io")(server, {
 const connectedUsers = new Map();
 const timers = new Map();
 
+const randomizeArray = (array) => {
+  let currentIndex = array.length,
+    temporaryValue,
+    randomIndex;
+
+  while (0 !== currentIndex) {
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex -= 1;
+
+    temporaryValue = array[currentIndex];
+    array[currentIndex] = array[randomIndex];
+    array[randomIndex] = temporaryValue;
+  }
+};
+
 const getKey = (map, value) => [...map].find(([key, val]) => val == value)[0];
 
 const contains = (map, value) => {
@@ -85,7 +100,8 @@ const getUserLobbies = (userId) => {
 
 /* Grabs all users from a game */
 const getGameUsers = (gameId) => {
-  const query = "SELECT * FROM game_user WHERE game_id = ?";
+  const query =
+    "SELECT game_user.*, role.secret_identity, role.party_membership FROM game_user JOIN role ON game_user.role_id = role.role_id WHERE game_id = ?";
   const params = [gameId];
 
   return new Promise((resolve, reject) => {
@@ -168,6 +184,26 @@ const readyToStart = (gameUsers, interval) => {
   return allReady && gameUsers.length >= 5;
 };
 
+/* Assigns roles to game users in a lobby */
+const assignRole = (gameUserId, roleId) => {
+  const query = "UPDATE game_user SET role_id = ? WHERE game_user_id = ?";
+  const params = [roleId, gameUserId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+
+      if (result.affectedRows === 0) {
+        return resolve(false);
+      } else {
+        return resolve(true);
+      }
+    });
+  });
+};
+
 /* Deletes a user from a lobby */
 const deleteUserFromLobby = (gameUserId) => {
   const query = "DELETE FROM game_user WHERE game_user_id = ?";
@@ -199,7 +235,7 @@ const disconnect = async (socket) => {
       let result = await getGameUsers(userLobby.game_id);
       if (result) {
         /* Send updated list of game users to lobby */
-        io.to(userLobby.game_id).emit("connectToRoom", {
+        io.to(userLobby.game_id).emit("get-game-users", {
           result,
         });
         socket.leave(userLobby.game_id);
@@ -248,7 +284,7 @@ io.on("connection", (socket) => {
       console.log(username + " has joined Game " + gameId);
 
       /* Send updated list of game users to lobby */
-      io.to(gameId).emit("connectToRoom", {
+      io.to(gameId).emit("get-game-users", {
         result,
       });
       io.to(gameId).emit(
@@ -272,7 +308,7 @@ io.on("connection", (socket) => {
       let result = await getGameUsers(gameId);
       if (result) {
         /* Send updated list of game users to lobby */
-        io.to(gameId).emit("connectToRoom", {
+        io.to(gameId).emit("get-game-users", {
           result,
         });
         socket.leave(gameId);
@@ -311,7 +347,7 @@ io.on("connection", (socket) => {
       let result = await getGameUsers(gameId);
       if (result) {
         /* Send updated list of game users to lobby */
-        io.to(gameId).emit("connectToRoom", {
+        io.to(gameId).emit("get-game-users", {
           result,
         });
         if (result.length === 0) {
@@ -347,7 +383,7 @@ io.on("connection", (socket) => {
       let result = await getGameUsers(gameId);
       if (result) {
         /* Send updated list of game users to lobby */
-        io.to(gameId).emit("connectToRoom", {
+        io.to(gameId).emit("get-game-users", {
           result,
         });
         io.to(gameId).emit(
@@ -358,8 +394,9 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("initialize-start-game", (data) => {
+  socket.on("initialize-start-game", async (data) => {
     let gameId = data.gameId;
+    let playerCount = data.playerCount;
     let time = 10;
     /* If button pressed more than once, delete other interval */
     clearInterval(timers.get(gameId));
@@ -367,11 +404,34 @@ io.on("connection", (socket) => {
     setTimeout(() => io.to(gameId).emit("game-timer", time), 1000);
     timers.set(
       gameId,
-      setInterval(() => {
+      setInterval(async () => {
+        /* Clear to start game */
         if (time < 0) {
           clearInterval(timers.get(gameId));
           io.to(gameId).emit("start-game");
           timers.delete(gameId);
+
+          let gameUsers = await getGameUsers(gameId);
+          if (!gameUsers) return;
+
+          /* Create array of roles and randomize their values */
+          let roles = [];
+          for (let i = 1; i <= gameUsers.length; i++) {
+            roles.push(i);
+          }
+          randomizeArray(roles);
+          for (let i = 0; i < gameUsers.length; i++) {
+            await assignRole(gameUsers[i].game_user_id, roles[i]);
+          }
+
+          /* Grab all users in game */
+          let result = await getGameUsers(gameId);
+          if (result) {
+            /* Send updated list of game users to lobby */
+            io.to(gameId).emit("get-game-users", {
+              result,
+            });
+          }
         } else {
           io.to(gameId).emit("game-timer", time--);
         }
