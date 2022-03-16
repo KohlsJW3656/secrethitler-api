@@ -408,7 +408,6 @@ io.on("connection", (socket) => {
         /* Clear to start game */
         if (time < 0) {
           clearInterval(timers.get(gameId));
-          io.to(gameId).emit("start-game");
           timers.delete(gameId);
 
           let gameUsers = await getGameUsers(gameId);
@@ -431,6 +430,8 @@ io.on("connection", (socket) => {
             io.to(gameId).emit("get-game-users", {
               result,
             });
+            /* Push users to reveal role page */
+            io.to(gameId).emit("start-game");
           }
         } else {
           io.to(gameId).emit("game-timer", time--);
