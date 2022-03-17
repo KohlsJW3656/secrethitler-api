@@ -184,7 +184,27 @@ const readyToStart = (gameUsers, interval) => {
   return allReady && gameUsers.length >= 5;
 };
 
-/* Assigns roles to game users in a lobby */
+/* Assigns the start time for a game */
+const setStartTime = (gameId) => {
+  const query = "UPDATE game SET start_time = NOW() WHERE game_id = ?";
+  const params = [gameId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+
+      if (result.affectedRows === 0) {
+        return resolve(false);
+      } else {
+        return resolve(true);
+      }
+    });
+  });
+};
+
+/* Assigns roles to game users in a game */
 const assignRole = (gameUserId, roleId) => {
   const query = "UPDATE game_user SET role_id = ? WHERE game_user_id = ?";
   const params = [roleId, gameUserId];
@@ -239,7 +259,7 @@ const disconnect = async (socket) => {
           result,
         });
         socket.leave(userLobby.game_id);
-        console.log(userLobby.username + " has left Game " + userLobby.game_id);
+        console.log(userLobby.username + " left Game " + userLobby.game_id);
         if (result.length === 0) {
           await deleteGame(userLobby.game_id);
         } else {
@@ -281,7 +301,7 @@ io.on("connection", (socket) => {
     let result = await getGameUsers(gameId);
     if (result) {
       socket.join(gameId);
-      console.log(username + " has joined Game " + gameId);
+      console.log(username + " joined Game " + gameId);
 
       /* Send updated list of game users to lobby */
       io.to(gameId).emit("get-game-users", {
@@ -312,7 +332,7 @@ io.on("connection", (socket) => {
           result,
         });
         socket.leave(gameId);
-        console.log(username + " has left Game " + gameId);
+        console.log(username + " left Game " + gameId);
         if (result.length === 0) {
           await deleteGame(gameId);
         } else {
@@ -341,7 +361,7 @@ io.on("connection", (socket) => {
       );
 
       io.sockets.sockets.get(targetSocketId).leave(gameId);
-      console.log(username + " has been kicked from Game " + gameId);
+      console.log(username + " was kicked from Game " + gameId);
 
       /* Grab all users in game */
       let result = await getGameUsers(gameId);
@@ -396,7 +416,6 @@ io.on("connection", (socket) => {
 
   socket.on("initialize-start-game", async (data) => {
     let gameId = data.gameId;
-    let playerCount = data.playerCount;
     let time = 10;
     /* If button pressed more than once, delete other interval */
     clearInterval(timers.get(gameId));
@@ -407,8 +426,12 @@ io.on("connection", (socket) => {
       setInterval(async () => {
         /* Clear to start game */
         if (time < 0) {
+          console.log("Game " + gameId + " is starting");
           clearInterval(timers.get(gameId));
           timers.delete(gameId);
+
+          let startedGame = await setStartTime(gameId);
+          if (!startedGame) return;
 
           let gameUsers = await getGameUsers(gameId);
           if (!gameUsers) return;

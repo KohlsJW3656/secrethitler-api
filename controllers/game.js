@@ -84,7 +84,7 @@ exports.allGames = async (req, res) => {
 */
 exports.allJoinable = async (req, res) => {
   const query =
-    "SELECT * FROM game WHERE game.start_time IS NULL ORDER BY game_id ASC";
+    "SELECT game.*, COUNT(game_user.game_id) FROM game JOIN game_user ON game.game_id = game_user.game_id WHERE game.start_time IS NULL GROUP BY game_user.game_id ORDER BY COUNT(game_user.game_id) DESC";
 
   connection.query(query, (error, results) => {
     if (error) {
