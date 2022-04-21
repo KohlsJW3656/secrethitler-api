@@ -424,7 +424,7 @@ io.on("connection", (socket) => {
     timers.set(
       gameId,
       setInterval(async () => {
-        /* Clear to start game */
+        /* Clear to reveal roles */
         if (time < 0) {
           console.log("Game " + gameId + " is starting");
           clearInterval(timers.get(gameId));
@@ -454,17 +454,31 @@ io.on("connection", (socket) => {
               result,
             });
             /* Push users to reveal role page */
-            io.to(gameId).emit("start-game");
+            io.to(gameId).emit("reveal-role");
+            time = 20;
+            /* With the set interval in the hashmap, there is a 2 second delay, so we must delay the first number by 1 second */
+            setTimeout(() => io.to(gameId).emit("game-timer", time), 1000);
+            timers.set(
+              gameId,
+              setInterval(async () => {
+                /* Clear to start game */
+                if (time < 0) {
+                  console.log("Game " + gameId + " has started");
+
+                  clearInterval(timers.get(gameId));
+                  /* Push users to game page */
+                  io.to(gameId).emit("start-game");
+                } else {
+                  io.to(gameId).emit("game-timer", time--);
+                }
+              }, 1000)
+            );
           }
         } else {
           io.to(gameId).emit("game-timer", time--);
         }
       }, 1000)
     );
-  });
-
-  socket.on("start-game", async (data) => {
-    let gameId = data.gameId;
   });
 
   socket.on("logout", () => disconnect(socket));
