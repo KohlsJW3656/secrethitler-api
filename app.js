@@ -114,6 +114,44 @@ const getGameUsers = (gameId) => {
   });
 };
 
+/* Grabs all game policies */
+const getGamePolicies = (gameId) => {
+  const query =
+    "SELECT game_policy.*, policy.fascist FROM game_policy JOIN policy ON game_policy.policy_id = policy.policy_id WHERE game_id = ?";
+  const params = [gameId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+      return resolve(result);
+    });
+  });
+};
+
+/* Creates game policies */
+const createGamePolicies = (
+  gameId,
+  policyId,
+  deckOrder,
+  discarded,
+  enacted
+) => {
+  const query =
+    "INSERT INTO game_policy (game_id, policy_id, deck_order, discarded, enacted) VALUES (?, ?, ?, ?, ?)";
+  const params = [gameId, policyId, deckOrder, discarded, enacted];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+      return resolve(result);
+    });
+  });
+};
+
 const deleteGame = (gameId) => {
   const query = "DELETE FROM game WHERE game_id = ?";
   const params = [gameId];
@@ -466,8 +504,27 @@ io.on("connection", (socket) => {
                   console.log("Game " + gameId + " has started");
 
                   clearInterval(timers.get(gameId));
-                  /* Push users to game page */
-                  io.to(gameId).emit("start-game");
+
+                  /* Create array of policies and randomize their values */
+                  let policies = [];
+                  for (let i = 1; i <= 17; i++) {
+                    policies.push(i);
+                  }
+                  randomizeArray(policies);
+                  for (let i = 1; i <= 17; i++) {
+                    await createGamePolicies(gameId, i, policies[i], 0, 0);
+                  }
+
+                  /* Grab all policies in game */
+                  let gamePolicies = await getGamePolicies(gameId);
+                  if (gamePolicies) {
+                    /* Send game policies to lobby */
+                    io.to(gameId).emit("get-game-policies", {
+                      gamePolicies,
+                    });
+                    /* Push users to game page */
+                    io.to(gameId).emit("start-game");
+                  }
                 } else {
                   io.to(gameId).emit("game-timer", time--);
                 }
