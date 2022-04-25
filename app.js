@@ -510,9 +510,10 @@ io.on("connection", (socket) => {
                   for (let i = 1; i <= 17; i++) {
                     policies.push(i);
                   }
+                  console.table(policies);
                   randomizeArray(policies);
-                  for (let i = 1; i <= 17; i++) {
-                    await createGamePolicies(gameId, i, policies[i], 0, 0);
+                  for (let i = 0; i < policies.length; i++) {
+                    await createGamePolicies(gameId, i + 1, policies[i], 0, 0);
                   }
 
                   /* Grab all policies in game */
