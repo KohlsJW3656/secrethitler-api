@@ -73,6 +73,7 @@ CREATE TABLE game_user (
   prev_president BOOLEAN NOT NULL DEFAULT 0,
   prev_chancellor BOOLEAN NOT NULL DEFAULT 0,
   confirmed_not_hitler BOOLEAN NOT NULL DEFAULT 0,
+  ballot BOOLEAN DEFAULT NULL,
   FOREIGN KEY(game_id) REFERENCES game(game_id),
   FOREIGN KEY(user_id) REFERENCES user(user_id),
   FOREIGN KEY(role_id) REFERENCES role(role_id)

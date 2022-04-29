@@ -71,6 +71,12 @@ const randomizeArray = (array) => {
   }
 };
 
+const getRandomItem = (array) => {
+  const randomIndex = Math.floor(Math.random() * array.length);
+  const item = array[randomIndex];
+  return item;
+};
+
 const getKey = (map, value) => [...map].find(([key, val]) => val == value)[0];
 
 const contains = (map, value) => {
@@ -117,7 +123,7 @@ const getGameUsers = (gameId) => {
 /* Grabs all game policies */
 const getGamePolicies = (gameId) => {
   const query =
-    "SELECT game_policy.*, policy.fascist FROM game_policy JOIN policy ON game_policy.policy_id = policy.policy_id WHERE game_id = ?";
+    "SELECT game_policy.*, policy.fascist FROM game_policy JOIN policy ON game_policy.policy_id = policy.policy_id WHERE game_id = ? ORDER BY deck_order ASC";
   const params = [gameId];
 
   return new Promise((resolve, reject) => {
@@ -246,6 +252,148 @@ const setStartTime = (gameId) => {
 const assignRole = (gameUserId, roleId) => {
   const query = "UPDATE game_user SET role_id = ? WHERE game_user_id = ?";
   const params = [roleId, gameUserId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+
+      if (result.affectedRows === 0) {
+        return resolve(false);
+      } else {
+        return resolve(true);
+      }
+    });
+  });
+};
+
+/* Casts a ballot */
+const castBallot = (gameUserId, ballot) => {
+  const query = "UPDATE game_user SET ballot = ? WHERE game_user_id = ?";
+  const params = [ballot, gameUserId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+
+      if (result.affectedRows === 0) {
+        return resolve(false);
+      } else {
+        return resolve(true);
+      }
+    });
+  });
+};
+
+/* Assigns a president */
+const assignPresident = (gameUserId, value) => {
+  const query = "UPDATE game_user SET president = ? WHERE game_user_id = ?";
+  const params = [value, gameUserId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+
+      if (result.affectedRows === 0) {
+        return resolve(false);
+      } else {
+        return resolve(true);
+      }
+    });
+  });
+};
+
+/* Assigns prev president */
+const assignPrevPresident = (gameUserId, value) => {
+  const query =
+    "UPDATE game_user SET prev_president = ? WHERE game_user_id = ?";
+  const params = [value, gameUserId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+
+      if (result.affectedRows === 0) {
+        return resolve(false);
+      } else {
+        return resolve(true);
+      }
+    });
+  });
+};
+
+/* Assigns a chancellor */
+const assignChancellor = (gameUserId, value) => {
+  const query = "UPDATE game_user SET chancellor = ? WHERE game_user_id = ?";
+  const params = [value, gameUserId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+
+      if (result.affectedRows === 0) {
+        return resolve(false);
+      } else {
+        return resolve(true);
+      }
+    });
+  });
+};
+
+/* Assigns prev chancellor */
+const assignPrevChancellor = (gameUserId, value) => {
+  const query =
+    "UPDATE game_user SET prev_chancellor = ? WHERE game_user_id = ?";
+  const params = [value, gameUserId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+
+      if (result.affectedRows === 0) {
+        return resolve(false);
+      } else {
+        return resolve(true);
+      }
+    });
+  });
+};
+
+/* Assigns Discarded flag for a policy */
+const discardPolicy = (gamePolicyId, value) => {
+  const query = "UPDATE game_policy SET discarded = ? WHERE game_policy_id = ?";
+  const params = [value, gamePolicyId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+
+      if (result.affectedRows === 0) {
+        return resolve(false);
+      } else {
+        return resolve(true);
+      }
+    });
+  });
+};
+
+/* Assigns Enacted flag for a policy */
+const enactPolicy = (gamePolicyId, value) => {
+  const query = "UPDATE game_policy SET enacted = ? WHERE game_policy_id = ?";
+  const params = [value, gamePolicyId];
 
   return new Promise((resolve, reject) => {
     connection.query(query, params, (error, result) => {
@@ -483,6 +631,9 @@ io.on("connection", (socket) => {
           for (let i = 0; i < gameUsers.length; i++) {
             await assignRole(gameUsers[i].game_user_id, roles[i]);
           }
+          /* Assign a random user as president */
+          let randomUser = getRandomItem(gameUsers);
+          await assignPresident(randomUser.game_user_id, 1);
 
           /* Grab all users in game */
           let result = await getGameUsers(gameId);
@@ -510,7 +661,6 @@ io.on("connection", (socket) => {
                   for (let i = 1; i <= 17; i++) {
                     policies.push(i);
                   }
-                  console.table(policies);
                   randomizeArray(policies);
                   for (let i = 0; i < policies.length; i++) {
                     await createGamePolicies(gameId, i + 1, policies[i], 0, 0);
@@ -525,6 +675,8 @@ io.on("connection", (socket) => {
                     });
                     /* Push users to game page */
                     io.to(gameId).emit("start-game");
+                    /* Let the president choose a chancellor */
+                    io.to(gameId).emit("choose-chancellor");
                   }
                 } else {
                   io.to(gameId).emit("game-timer", time--);
@@ -537,6 +689,99 @@ io.on("connection", (socket) => {
         }
       }, 1000)
     );
+  });
+
+  socket.on("assign-chancellor", async (data) => {
+    let gameId = data.gameId;
+    let gameUserId = data.game_user_id;
+    let value = data.value;
+
+    await assignChancellor(gameUserId, value);
+
+    /* Grab all users in game */
+    let result = await getGameUsers(gameId);
+    if (result) {
+      /* Send updated list of game users to lobby */
+      io.to(gameId).emit("get-game-users", {
+        result,
+      });
+      io.to(gameId).emit("initiate-ballot");
+    }
+  });
+
+  socket.on("cast-ballot", async (data) => {
+    let gameId = data.gameId;
+    let gameUserId = data.game_user_id;
+    let username = data.username;
+    let ballot = data.ballot;
+
+    await castBallot(gameUserId, ballot);
+    console.log(username + " voted " + (ballot === 1 ? "Ja!" : "Nein!"));
+
+    /* Grab all users in game */
+    let result = await getGameUsers(gameId);
+    if (result) {
+      let castedBallots = result.filter((gameUser) => gameUser.ballot !== null);
+      /* If all players have voted */
+      if (castedBallots.length === result.length) {
+        let jas = castedBallots.filter(
+          (gameUser) => gameUser.ballot === 1
+        ).length;
+        let neins = castedBallots.filter(
+          (gameUser) => gameUser.ballot === 0
+        ).length;
+        /* Unassign ballot status */
+        for (let i = 0; i < result.length; i++) {
+          await castBallot(result[i].game_user_id, null);
+        }
+        if (jas > neins) {
+          console.log("Ballot Passed in game " + gameId);
+          io.to(gameId).emit("ballot-passed", { jas, neins });
+          //TODO Assign prev president and prev chancellor, reset fail count
+        } else {
+          console.log("Ballot Failed in game " + gameId);
+          io.to(gameId).emit("ballot-failed", { jas, neins });
+          //TODO Unassign president and chancellor and assign new president and increase fail count. If 3, unassign prev president and prev chancellor
+        }
+      }
+    }
+  });
+
+  socket.on("discard-policy", async (data) => {
+    let gameId = data.gameId;
+    let gamePolicyId = data.game_policy_id;
+    let value = data.value;
+
+    await discardPolicy(gamePolicyId, value);
+
+    /* Grab all policies in game */
+    let gamePolicies = await getGamePolicies(gameId);
+    if (gamePolicies) {
+      /* Send game policies to lobby */
+      io.to(gameId).emit("get-game-policies", {
+        gamePolicies,
+      });
+      io.to(gameId).emit("chancellor-policies");
+    }
+  });
+
+  socket.on("enact-policy", async (data) => {
+    let gameId = data.gameId;
+    let gamePolicyId = data.game_policy_id;
+    let value = data.value;
+
+    await enactPolicy(gamePolicyId, value);
+
+    /* Grab all policies in game */
+    let gamePolicies = await getGamePolicies(gameId);
+    if (gamePolicies) {
+      /* Send game policies to lobby */
+      io.to(gameId).emit("get-game-policies", {
+        gamePolicies,
+      });
+      //TODO discard the other policy
+      //TODO unassign president and chancellor, move presidency to next user
+    }
   });
 
   socket.on("logout", () => disconnect(socket));
