@@ -69,14 +69,22 @@ const randomizeArray = (array) => {
     array[currentIndex] = array[randomIndex];
     array[randomIndex] = temporaryValue;
   }
-};
+}; /* randomizeArray */
 
 const getRandomItem = (array) => {
   const randomIndex = Math.floor(Math.random() * array.length);
   const item = array[randomIndex];
   return item;
-};
+}; /* getRandomItem */
 
+const getNextItem = (array, currentItem) => {
+  let currentIndex = array.indexOf(currentItem);
+  const nextIndex = ++currentIndex % array.length;
+  const item = array[nextIndex];
+  return item;
+}; /* getNextItem */
+
+/* Gets a key by a value */
 const getKey = (map, value) => [...map].find(([key, val]) => val == value)[0];
 
 const contains = (map, value) => {
@@ -86,7 +94,7 @@ const contains = (map, value) => {
     }
   }
   return false;
-};
+}; /* getKey */
 
 /* Gets all lobbies a user is in */
 const getUserLobbies = (userId) => {
@@ -102,9 +110,8 @@ const getUserLobbies = (userId) => {
       return resolve(result);
     });
   });
-};
+}; /* getUserLobbies */
 
-/* Grabs all users from a game */
 const getGameUsers = (gameId) => {
   const query =
     "SELECT game_user.*, role.secret_identity, role.party_membership FROM game_user JOIN role ON game_user.role_id = role.role_id WHERE game_id = ?";
@@ -118,9 +125,8 @@ const getGameUsers = (gameId) => {
       return resolve(result);
     });
   });
-};
+}; /* getGameUsers */
 
-/* Grabs all game policies */
 const getGamePolicies = (gameId) => {
   const query =
     "SELECT game_policy.*, policy.fascist FROM game_policy JOIN policy ON game_policy.policy_id = policy.policy_id WHERE game_id = ? ORDER BY deck_order ASC";
@@ -134,9 +140,8 @@ const getGamePolicies = (gameId) => {
       return resolve(result);
     });
   });
-};
+}; /* getGamePolicies */
 
-/* Creates game policies */
 const createGamePolicies = (
   gameId,
   policyId,
@@ -156,7 +161,7 @@ const createGamePolicies = (
       return resolve(result);
     });
   });
-};
+}; /* createGamePolicies */
 
 const deleteGame = (gameId) => {
   const query = "DELETE FROM game WHERE game_id = ?";
@@ -175,7 +180,7 @@ const deleteGame = (gameId) => {
       }
     });
   });
-};
+}; /* deleteGame */
 
 const checkGameLobbyStatus = (gameId) => {
   const query =
@@ -197,7 +202,7 @@ const checkGameLobbyStatus = (gameId) => {
       }
     });
   });
-};
+}; /* checkGameLobbyStatus */
 
 /* Toggles a game user's ready status */
 const readyGameUser = (gameUserId, ready) => {
@@ -217,7 +222,7 @@ const readyGameUser = (gameUserId, ready) => {
       }
     });
   });
-};
+}; /* readyGameUser */
 
 /* validates if a game is ready to start and clears the interval if the timer is already going */
 const readyToStart = (gameUsers, interval) => {
@@ -226,7 +231,7 @@ const readyToStart = (gameUsers, interval) => {
     clearInterval(interval);
   }
   return allReady && gameUsers.length >= 5;
-};
+}; /* readyToStart */
 
 /* Assigns the start time for a game */
 const setStartTime = (gameId) => {
@@ -246,7 +251,27 @@ const setStartTime = (gameId) => {
       }
     });
   });
-};
+}; /* setStartTime */
+
+/* Assigns the end time for a game */
+const setEndTime = (gameId) => {
+  const query = "UPDATE game SET end_time = NOW() WHERE game_id = ?";
+  const params = [gameId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+
+      if (result.affectedRows === 0) {
+        return resolve(false);
+      } else {
+        return resolve(true);
+      }
+    });
+  });
+}; /* setEndTime */
 
 /* Assigns roles to game users in a game */
 const assignRole = (gameUserId, roleId) => {
@@ -266,7 +291,7 @@ const assignRole = (gameUserId, roleId) => {
       }
     });
   });
-};
+}; /* assignRole */
 
 /* Casts a ballot */
 const castBallot = (gameUserId, ballot) => {
@@ -286,12 +311,16 @@ const castBallot = (gameUserId, ballot) => {
       }
     });
   });
-};
+}; /* castBallot */
 
 /* Assigns a president */
 const assignPresident = (gameUserId, value) => {
   const query = "UPDATE game_user SET president = ? WHERE game_user_id = ?";
   const params = [value, gameUserId];
+
+  console.log(
+    "Assign President gameUserId: " + gameUserId + " value: " + value
+  );
 
   return new Promise((resolve, reject) => {
     connection.query(query, params, (error, result) => {
@@ -306,7 +335,7 @@ const assignPresident = (gameUserId, value) => {
       }
     });
   });
-};
+}; /* assignPresident */
 
 /* Assigns prev president */
 const assignPrevPresident = (gameUserId, value) => {
@@ -327,7 +356,7 @@ const assignPrevPresident = (gameUserId, value) => {
       }
     });
   });
-};
+}; /* assignPrevPresident */
 
 /* Assigns a chancellor */
 const assignChancellor = (gameUserId, value) => {
@@ -347,7 +376,7 @@ const assignChancellor = (gameUserId, value) => {
       }
     });
   });
-};
+}; /* assignChancellor */
 
 /* Assigns prev chancellor */
 const assignPrevChancellor = (gameUserId, value) => {
@@ -368,7 +397,27 @@ const assignPrevChancellor = (gameUserId, value) => {
       }
     });
   });
-};
+}; /* assignPrevChancellor */
+
+const assignConfirmedNotHitler = (gameUserId, value) => {
+  const query =
+    "UPDATE game_user SET confirmed_not_hitler = ? WHERE game_user_id = ?";
+  const params = [value, gameUserId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+
+      if (result.affectedRows === 0) {
+        return resolve(false);
+      } else {
+        return resolve(true);
+      }
+    });
+  });
+}; /* assignConfirmedNotHitler */
 
 /* Assigns Discarded flag for a policy */
 const discardPolicy = (gamePolicyId, value) => {
@@ -388,7 +437,28 @@ const discardPolicy = (gamePolicyId, value) => {
       }
     });
   });
-};
+}; /* discardPolicy */
+
+/* Assigns deck order for a policy */
+const updateDeckOrder = (gamePolicyId, value) => {
+  const query =
+    "UPDATE game_policy SET deck_order = ? WHERE game_policy_id = ?";
+  const params = [value, gamePolicyId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+
+      if (result.affectedRows === 0) {
+        return resolve(false);
+      } else {
+        return resolve(true);
+      }
+    });
+  });
+}; /* updateDeckOrder */
 
 /* Assigns Enacted flag for a policy */
 const enactPolicy = (gamePolicyId, value) => {
@@ -408,7 +478,7 @@ const enactPolicy = (gamePolicyId, value) => {
       }
     });
   });
-};
+}; /* enactPolicy */
 
 /* Deletes a user from a lobby */
 const deleteUserFromLobby = (gameUserId) => {
@@ -428,7 +498,7 @@ const deleteUserFromLobby = (gameUserId) => {
       }
     });
   });
-};
+}; /* deleteUserFromLobby */
 
 const disconnect = async (socket) => {
   let userLobbies = await getUserLobbies(connectedUsers.get(socket.id));
@@ -461,7 +531,7 @@ const disconnect = async (socket) => {
   connectedUsers.delete(socket.id);
   io.sockets.emit("users-connected", connectedUsers.size);
   console.log("Connected Users:", connectedUsers.size);
-};
+}; /* disconnect */
 
 io.on("connection", (socket) => {
   socket.on("login", (data) => {
@@ -478,7 +548,7 @@ io.on("connection", (socket) => {
       io.to(socket.id).emit("logout", "User already logged in");
       console.log("User " + userId + " attempted to login twice!");
     }
-  });
+  }); /* login */
 
   socket.on("join-game", async (data) => {
     let username = data.username;
@@ -498,7 +568,7 @@ io.on("connection", (socket) => {
         readyToStart(result, timers.get(gameId))
       );
     }
-  });
+  }); /* join-game */
 
   socket.on("leave-game", async (data) => {
     let gameId = data.gameId;
@@ -529,7 +599,7 @@ io.on("connection", (socket) => {
         }
       }
     }
-  });
+  }); /* leave-game */
 
   /* Kicks a user from a lobby */
   socket.on("kick-user", async (data) => {
@@ -566,7 +636,7 @@ io.on("connection", (socket) => {
         }
       }
     }
-  });
+  }); /* kick-user */
 
   /* Toggle game user's ready status and sends updated player list */
   socket.on("user-ready", async (data) => {
@@ -598,11 +668,11 @@ io.on("connection", (socket) => {
         );
       }
     }
-  });
+  }); /* user-ready */
 
   socket.on("initialize-start-game", async (data) => {
     let gameId = data.gameId;
-    let time = 10;
+    let time = 5;
     /* If button pressed more than once, delete other interval */
     clearInterval(timers.get(gameId));
     /* With the set interval in the hashmap, there is a 2 second delay, so we must delay the first number by 1 second */
@@ -644,7 +714,7 @@ io.on("connection", (socket) => {
             });
             /* Push users to reveal role page */
             io.to(gameId).emit("reveal-role");
-            time = 20;
+            time = 5;
             /* With the set interval in the hashmap, there is a 2 second delay, so we must delay the first number by 1 second */
             setTimeout(() => io.to(gameId).emit("game-timer", time), 1000);
             timers.set(
@@ -676,7 +746,9 @@ io.on("connection", (socket) => {
                     /* Push users to game page */
                     io.to(gameId).emit("start-game");
                     /* Let the president choose a chancellor */
-                    io.to(gameId).emit("choose-chancellor");
+                    io.to(getKey(connectedUsers, randomUser.user_id)).emit(
+                      "choose-chancellor"
+                    );
                   }
                 } else {
                   io.to(gameId).emit("game-timer", time--);
@@ -689,7 +761,7 @@ io.on("connection", (socket) => {
         }
       }, 1000)
     );
-  });
+  }); /* initialize-start-game */
 
   socket.on("assign-chancellor", async (data) => {
     let gameId = data.gameId;
@@ -698,16 +770,15 @@ io.on("connection", (socket) => {
 
     await assignChancellor(gameUserId, value);
 
-    /* Grab all users in game */
+    /* Send updated list of game users to lobby */
     let result = await getGameUsers(gameId);
     if (result) {
-      /* Send updated list of game users to lobby */
       io.to(gameId).emit("get-game-users", {
         result,
       });
       io.to(gameId).emit("initiate-ballot");
     }
-  });
+  }); /* assign-chancellor */
 
   socket.on("cast-ballot", async (data) => {
     let gameId = data.gameId;
@@ -730,22 +801,103 @@ io.on("connection", (socket) => {
         let neins = castedBallots.filter(
           (gameUser) => gameUser.ballot === 0
         ).length;
+        let currentPresident = result.filter(
+          (gameUser) => gameUser.president === 1
+        )[0];
+        let currentChancellor = result.filter(
+          (gameUser) => gameUser.chancellor === 1
+        )[0];
+        let prevPresident = result.filter(
+          (gameUser) => gameUser.prev_president === 1
+        )[0];
+        let prevChancellor = result.filter(
+          (gameUser) => gameUser.prev_chancellor === 1
+        )[0];
         /* Unassign ballot status */
         for (let i = 0; i < result.length; i++) {
           await castBallot(result[i].game_user_id, null);
         }
+        /* Passed Ballot */
         if (jas > neins) {
           console.log("Ballot Passed in game " + gameId);
-          io.to(gameId).emit("ballot-passed", { jas, neins });
-          //TODO Assign prev president and prev chancellor, reset fail count
+          /* Unassign last pres and chancellor */
+          if (prevPresident)
+            await assignPrevPresident(prevPresident.game_user_id, 0);
+          if (prevChancellor)
+            await assignPrevChancellor(prevChancellor.game_user_id, 0);
+
+          /* Assign Prev President and Prev chancellor to new ones */
+          await assignPrevPresident(currentPresident.game_user_id, 1);
+          await assignPrevChancellor(currentChancellor.game_user_id, 1);
+
+          /* Check for win condition of Hitler elected chancellor after 3 fascist policies */
+          let gamePolicies = await getGamePolicies(gameId);
+          if (gamePolicies) {
+            let enactedFascist = gamePolicies.filter(
+              (policy) => policy.enacted === 1 && policy.fascist === 1
+            );
+            if (enactedFascist.length >= 3) {
+              if (currentChancellor.role_id === 1) {
+                io.to(gameId).emit("fascists-win", {
+                  message:
+                    "Hitler was elected Chancellor after 3 fascist policies were enacted!",
+                });
+                await setEndTime(gameId);
+                console.log(
+                  "Fascists win by electing Hitler Chancellor in game " +
+                    gameId +
+                    "!"
+                );
+                return;
+              } else if (currentChancellor.confirmed_not_hitler !== 1) {
+                await assignConfirmedNotHitler(
+                  currentChancellor.game_user_id,
+                  1
+                );
+              }
+            }
+          }
+
+          result = await getGameUsers(gameId);
+          if (result) {
+            /* Send updated list of game users to lobby */
+            io.to(gameId).emit("get-game-users", {
+              result,
+            });
+            io.to(gameId).emit("ballot-passed", { jas, neins });
+            io.to(getKey(connectedUsers, currentPresident.user_id)).emit(
+              "president-policies"
+            );
+          }
+          //TODO reset fail count
         } else {
+          /* Failed Ballot */
           console.log("Ballot Failed in game " + gameId);
-          io.to(gameId).emit("ballot-failed", { jas, neins });
-          //TODO Unassign president and chancellor and assign new president and increase fail count. If 3, unassign prev president and prev chancellor
+          /* Unassign President and chancellor */
+          //TODO Increase fail count. If 3, unassign prev president and prev chancellor
+          await assignPresident(currentPresident.game_user_id, 0);
+          await assignChancellor(currentChancellor.game_user_id, 0);
+
+          /* Assign the next president */
+          let nextPresident = getNextItem(result, currentPresident);
+          await assignPresident(nextPresident.game_user_id, 1);
+
+          result = await getGameUsers(gameId);
+          if (result) {
+            /* Send updated list of game users to lobby */
+            io.to(gameId).emit("get-game-users", {
+              result,
+            });
+            io.to(gameId).emit("ballot-failed", { jas, neins });
+            /* Let the president choose a chancellor */
+            io.to(getKey(connectedUsers, nextPresident.user_id)).emit(
+              "choose-chancellor"
+            );
+          }
         }
       }
     }
-  });
+  }); /* cast-ballot */
 
   socket.on("discard-policy", async (data) => {
     let gameId = data.gameId;
@@ -761,28 +913,136 @@ io.on("connection", (socket) => {
       io.to(gameId).emit("get-game-policies", {
         gamePolicies,
       });
-      io.to(gameId).emit("chancellor-policies");
     }
-  });
+    let result = await getGameUsers(gameId);
+    if (result) {
+      let currentChancellor = result.filter(
+        (gameUser) => gameUser.chancellor === 1
+      )[0];
+      io.to(getKey(connectedUsers, currentChancellor.user_id)).emit(
+        "chancellor-policies"
+      );
+    }
+  }); /* discard-policy */
 
   socket.on("enact-policy", async (data) => {
     let gameId = data.gameId;
     let gamePolicyId = data.game_policy_id;
     let value = data.value;
 
+    /* Enact selected policy */
     await enactPolicy(gamePolicyId, value);
 
-    /* Grab all policies in game */
+    /* Grab all policies and discard the policy that was not selected */
     let gamePolicies = await getGamePolicies(gameId);
     if (gamePolicies) {
-      /* Send game policies to lobby */
+      await discardPolicy(
+        gamePolicies.filter(
+          (policy) =>
+            policy.deck_order <= 3 &&
+            policy.discarded === 0 &&
+            policy.enacted === 0
+        )[0].game_policy_id,
+        value
+      );
+    }
+
+    /* Get updated policies and check to see if we need to reshuffle or fix the deck order */
+    gamePolicies = await getGamePolicies(gameId);
+    if (gamePolicies) {
+      let deckPolicies = gamePolicies.filter(
+        (policy) => policy.discarded === 0 && policy.enacted === 0
+      );
+      if (deckPolicies.length < 3) {
+        let discardedPolicies = gamePolicies.filter(
+          (policy) => policy.discarded === 1 && policy.enacted === 0
+        );
+        /* Unset all discarded policies */
+        await Promise.all(
+          discardedPolicies.map(async (policy) =>
+            discardPolicy(policy.game_policy_id, 0)
+          )
+        );
+        /* Shuffle the policies and update the deck order */
+        randomizeArray(discardedPolicies);
+        await Promise.all(
+          discardedPolicies.map(async (gamePolicy, index) =>
+            updateDeckOrder(gamePolicy.game_policy_id, index + 1)
+          )
+        );
+      } else {
+        /* Reset the deck order */
+        await Promise.all(
+          deckPolicies.map(async (gamePolicy, index) =>
+            updateDeckOrder(gamePolicy.game_policy_id, index + 1)
+          )
+        );
+      }
+    }
+
+    /* Get updated policies and send game policies to lobby */
+    gamePolicies = await getGamePolicies(gameId);
+    if (gamePolicies) {
+      let enactedFascist = gamePolicies.filter(
+        (policy) => policy.enacted === 1 && policy.fascist === 1
+      );
+      let enactedLiberal = gamePolicies.filter(
+        (policy) => policy.enacted === 1 && policy.fascist === 0
+      );
       io.to(gameId).emit("get-game-policies", {
         gamePolicies,
       });
-      //TODO discard the other policy
-      //TODO unassign president and chancellor, move presidency to next user
+      /* Check for win condition of policy length */
+      if (enactedFascist.length === 6) {
+        io.to(gameId).emit("fascists-win", {
+          message: "Fascists have enacted 6 fascist policies!",
+        });
+        console.log(
+          "Fascists win by enacted 5 liberal policies in game " + gameId + "!"
+        );
+        return;
+      }
+      if (enactedLiberal.length === 5) {
+        io.to(gameId).emit("liberals-win", {
+          message: "Liberals have enacted 5 liberal policies!",
+        });
+        console.log(
+          "Liberals win by enacted 5 liberal policies! in game " + gameId + "!"
+        );
+        return;
+      }
     }
-  });
+
+    /* Grab all users in game and unassign president and chancellor */
+    let result = await getGameUsers(gameId);
+    if (result) {
+      let lastPresident = result.filter(
+        (gameUser) => gameUser.president === 1
+      )[0];
+      let lastChancellor = result.filter(
+        (gameUser) => gameUser.chancellor === 1
+      )[0];
+      /* Unassign President and chancellor */
+      await assignPresident(lastPresident.game_user_id, 0);
+      await assignChancellor(lastChancellor.game_user_id, 0);
+
+      /* Assign next president */
+      let nextPresident = getNextItem(result, lastPresident);
+      await assignPresident(nextPresident.game_user_id, 1);
+
+      /* Send updated list of game users to lobby */
+      result = await getGameUsers(gameId);
+      if (result) {
+        io.to(gameId).emit("get-game-users", {
+          result,
+        });
+        /* Let the president choose a chancellor */
+        io.to(getKey(connectedUsers, nextPresident.user_id)).emit(
+          "choose-chancellor"
+        );
+      }
+    }
+  }); /* enact-policy */
 
   socket.on("logout", () => disconnect(socket));
   socket.on("disconnect", () => disconnect(socket));
