@@ -480,6 +480,21 @@ const enactPolicy = (gamePolicyId, value) => {
   });
 }; /* enactPolicy */
 
+const getFascistPolicyKey = (enactedFascistCount, minPlayers, maxPlayers) => {
+  const query =
+    "SELECT * FROM fascist_policy_key WHERE enacted_count = ? && min_players <= ? && max_players >= ?";
+  const params = [enactedFascistCount, minPlayers, maxPlayers];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+      return resolve(result[0]);
+    });
+  });
+};
+
 /* Deletes a user from a lobby */
 const deleteUserFromLobby = (gameUserId) => {
   const query = "DELETE FROM game_user WHERE game_user_id = ?";
@@ -935,113 +950,137 @@ io.on("connection", (socket) => {
 
     /* Grab all policies and discard the policy that was not selected */
     let gamePolicies = await getGamePolicies(gameId);
-    if (gamePolicies) {
-      await discardPolicy(
-        gamePolicies.filter(
-          (policy) =>
-            policy.deck_order <= 3 &&
-            policy.discarded === 0 &&
-            policy.enacted === 0
-        )[0].game_policy_id,
-        value
-      );
-    }
+    if (!gamePolicies) return;
+    await discardPolicy(
+      gamePolicies.filter(
+        (policy) =>
+          policy.deck_order <= 3 &&
+          policy.discarded === 0 &&
+          policy.enacted === 0
+      )[0].game_policy_id,
+      value
+    );
 
     /* Get updated policies and check to see if we need to reshuffle or fix the deck order */
     gamePolicies = await getGamePolicies(gameId);
-    if (gamePolicies) {
-      let deckPolicies = gamePolicies.filter(
-        (policy) => policy.discarded === 0 && policy.enacted === 0
+    if (!gamePolicies) return;
+    let deckPolicies = gamePolicies.filter(
+      (policy) => policy.discarded === 0 && policy.enacted === 0
+    );
+    if (deckPolicies.length < 3) {
+      let discardedPolicies = gamePolicies.filter(
+        (policy) => policy.discarded === 1 && policy.enacted === 0
       );
-      if (deckPolicies.length < 3) {
-        let discardedPolicies = gamePolicies.filter(
-          (policy) => policy.discarded === 1 && policy.enacted === 0
-        );
-        /* Unset all discarded policies */
-        await Promise.all(
-          discardedPolicies.map(async (policy) =>
-            discardPolicy(policy.game_policy_id, 0)
-          )
-        );
-        /* Shuffle the policies and update the deck order */
-        randomizeArray(discardedPolicies);
-        await Promise.all(
-          discardedPolicies.map(async (gamePolicy, index) =>
-            updateDeckOrder(gamePolicy.game_policy_id, index + 1)
-          )
-        );
-      } else {
-        /* Reset the deck order */
-        await Promise.all(
-          deckPolicies.map(async (gamePolicy, index) =>
-            updateDeckOrder(gamePolicy.game_policy_id, index + 1)
-          )
-        );
-      }
+      /* Unset all discarded policies */
+      await Promise.all(
+        discardedPolicies.map(async (policy) =>
+          discardPolicy(policy.game_policy_id, 0)
+        )
+      );
+      /* Shuffle the policies and update the deck order */
+      randomizeArray(discardedPolicies);
+      await Promise.all(
+        discardedPolicies.map(async (gamePolicy, index) =>
+          updateDeckOrder(gamePolicy.game_policy_id, index + 1)
+        )
+      );
+    } else {
+      /* Reset the deck order */
+      await Promise.all(
+        deckPolicies.map(async (gamePolicy, index) =>
+          updateDeckOrder(gamePolicy.game_policy_id, index + 1)
+        )
+      );
     }
 
     /* Get updated policies and send game policies to lobby */
     gamePolicies = await getGamePolicies(gameId);
-    if (gamePolicies) {
-      let enactedFascist = gamePolicies.filter(
-        (policy) => policy.enacted === 1 && policy.fascist === 1
-      );
-      let enactedLiberal = gamePolicies.filter(
-        (policy) => policy.enacted === 1 && policy.fascist === 0
-      );
-      io.to(gameId).emit("get-game-policies", {
-        gamePolicies,
+    if (!gamePolicies) return;
+    let enactedFascist = gamePolicies.filter(
+      (policy) => policy.enacted === 1 && policy.fascist === 1
+    );
+    let enactedLiberal = gamePolicies.filter(
+      (policy) => policy.enacted === 1 && policy.fascist === 0
+    );
+    io.to(gameId).emit("get-game-policies", {
+      gamePolicies,
+    });
+    /* Check for win condition of policy length */
+    if (enactedFascist.length === 6) {
+      io.to(gameId).emit("fascists-win", {
+        message: "Fascists have enacted 6 fascist policies!",
       });
-      /* Check for win condition of policy length */
-      if (enactedFascist.length === 6) {
-        io.to(gameId).emit("fascists-win", {
-          message: "Fascists have enacted 6 fascist policies!",
-        });
-        console.log(
-          "Fascists win by enacted 5 liberal policies in game " + gameId + "!"
-        );
-        return;
-      }
-      if (enactedLiberal.length === 5) {
-        io.to(gameId).emit("liberals-win", {
-          message: "Liberals have enacted 5 liberal policies!",
-        });
-        console.log(
-          "Liberals win by enacted 5 liberal policies! in game " + gameId + "!"
-        );
-        return;
-      }
+      console.log(
+        "Fascists win by enacted 5 liberal policies in game " + gameId + "!"
+      );
+      return;
+    }
+    if (enactedLiberal.length === 5) {
+      io.to(gameId).emit("liberals-win", {
+        message: "Liberals have enacted 5 liberal policies!",
+      });
+      console.log(
+        "Liberals win by enacted 5 liberal policies! in game " + gameId + "!"
+      );
+      return;
     }
 
-    /* Grab all users in game and unassign president and chancellor */
+    /* Grab all users in game */
     let result = await getGameUsers(gameId);
-    if (result) {
-      let lastPresident = result.filter(
-        (gameUser) => gameUser.president === 1
-      )[0];
-      let lastChancellor = result.filter(
-        (gameUser) => gameUser.chancellor === 1
-      )[0];
-      /* Unassign President and chancellor */
-      await assignPresident(lastPresident.game_user_id, 0);
-      await assignChancellor(lastChancellor.game_user_id, 0);
+    if (!result) return;
+    let lastPresident = result.filter(
+      (gameUser) => gameUser.president === 1
+    )[0];
+    let lastChancellor = result.filter(
+      (gameUser) => gameUser.chancellor === 1
+    )[0];
 
-      /* Assign next president */
-      let nextPresident = getNextItem(result, lastPresident);
-      await assignPresident(nextPresident.game_user_id, 1);
+    let lastEnactedPolicy = gamePolicies.filter(
+      (policy) => policy.game_policy_id === gamePolicyId
+    )[0];
 
-      /* Send updated list of game users to lobby */
-      result = await getGameUsers(gameId);
-      if (result) {
-        io.to(gameId).emit("get-game-users", {
-          result,
-        });
-        /* Let the president choose a chancellor */
-        io.to(getKey(connectedUsers, nextPresident.user_id)).emit(
-          "choose-chancellor"
+    /* If the game didn't end by policy count, check for fascist policy enacted and do presidential powers */
+    if (lastEnactedPolicy.fascist) {
+      let presidentialPower = await getFascistPolicyKey(
+        enactedFascist.length,
+        result.length,
+        result.length
+      );
+      if (!presidentialPower) return;
+      if (presidentialPower.name !== null) {
+        console.log(
+          "Presidential Power " +
+            presidentialPower.name +
+            " was issued in game " +
+            gameId
         );
+        io.to(getKey(connectedUsers, lastPresident.user_id)).emit(
+          presidentialPower.name,
+          { presidentialPower }
+        );
+        return;
       }
     }
+
+    /* If the president doesn't need to do any actions */
+    /* Unassign President and chancellor */
+    await assignPresident(lastPresident.game_user_id, 0);
+    await assignChancellor(lastChancellor.game_user_id, 0);
+
+    /* Assign next president */
+    let nextPresident = getNextItem(result, lastPresident);
+    await assignPresident(nextPresident.game_user_id, 1);
+
+    /* Send updated list of game users to lobby */
+    result = await getGameUsers(gameId);
+    if (!result) return;
+    io.to(gameId).emit("get-game-users", {
+      result,
+    });
+    /* Let the president choose a chancellor */
+    io.to(getKey(connectedUsers, nextPresident.user_id)).emit(
+      "choose-chancellor"
+    );
   }); /* enact-policy */
 
   socket.on("logout", () => disconnect(socket));

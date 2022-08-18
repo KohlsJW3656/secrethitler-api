@@ -2,6 +2,7 @@ DROP TABLE IF EXISTS game_user_action;
 DROP TABLE IF EXISTS game_user;
 DROP TABLE IF EXISTS game_policy;
 DROP TABLE IF EXISTS game_rule;
+DROP TABLE IF EXISTS fascist_policy_key;
 DROP TABLE IF EXISTS rule;
 DROP TABLE IF EXISTS game;
 DROP TABLE IF EXISTS action;
@@ -41,6 +42,15 @@ CREATE TABLE rule (
   rule_id SERIAL PRIMARY KEY,
   name VARCHAR(50) NOT NULL,
   description TEXT NOT NULL
+);
+
+CREATE TABLE fascist_policy_key (
+  fascist_policy_key_id SERIAL PRIMARY KEY,
+  name VARCHAR(50),
+  description TEXT NOT NULL,
+  enacted_count INT NOT NULL,
+  min_players INT NOT NULL,
+  max_players INT NOT NULL
 );
 
 CREATE TABLE game (
@@ -128,6 +138,16 @@ INSERT INTO policy(fascist) VALUES (1);
 INSERT INTO policy(fascist) VALUES (1);
 INSERT INTO policy(fascist) VALUES (1);
 INSERT INTO policy(fascist) VALUES (1);
+
+/* Used to determine Presidential Powers */
+INSERT INTO fascist_policy_key(name, description, enacted_count, min_players, max_players) VALUES (null, "A blank policy", 1, 5, 8);
+INSERT INTO fascist_policy_key(name, description, enacted_count, min_players, max_players) VALUES ("investigate-loyalty", "The President Investigates a player's party membership card.", 1, 9, 10);
+INSERT INTO fascist_policy_key(name, description, enacted_count, min_players, max_players) VALUES (null, "A blank policy", 2, 5, 6);
+INSERT INTO fascist_policy_key(name, description, enacted_count, min_players, max_players) VALUES ("investigate-loyalty", "The President Investigates a player's party membership card.", 2, 7, 10);
+INSERT INTO fascist_policy_key(name, description, enacted_count, min_players, max_players) VALUES ("policy-peek", "The President examines the top three cards.", 3, 5, 6);
+INSERT INTO fascist_policy_key(name, description, enacted_count, min_players, max_players) VALUES ("call-special-election", "The president picks the next presidential candidate.", 3, 7, 10);
+INSERT INTO fascist_policy_key(name, description, enacted_count, min_players, max_players) VALUES ("execution", "The President must kill a player.", 4, 5, 10);
+INSERT INTO fascist_policy_key(name, description, enacted_count, min_players, max_players) VALUES ("execution-veto", "The President must kill a player. Veto power is unlocked.", 5, 5, 10);
 
 INSERT INTO action(name, system_action) VALUES ("Game began", 1);
 INSERT INTO action(name, system_action) VALUES ("Fascists won", 1);
