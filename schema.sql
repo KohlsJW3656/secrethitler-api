@@ -1,17 +1,6 @@
-DROP TABLE IF EXISTS game_user_action;
-DROP TABLE IF EXISTS game_user;
-DROP TABLE IF EXISTS game_policy;
-DROP TABLE IF EXISTS game_rule;
-DROP TABLE IF EXISTS fascist_policy_key;
-DROP TABLE IF EXISTS rule;
-DROP TABLE IF EXISTS game;
-DROP TABLE IF EXISTS action;
-DROP TABLE IF EXISTS role;
-DROP TABLE IF EXISTS policy;
-DROP TABLE IF EXISTS user;
-
+/* Used for user login, emails, etc */
 CREATE TABLE user (
-  user_id SERIAL PRIMARY KEY,
+  id SERIAL PRIMARY KEY,
   first_name VARCHAR(25) NOT NULL,
   last_name VARCHAR(25) NOT NULL,
   email VARCHAR(200) NOT NULL,
@@ -21,31 +10,93 @@ CREATE TABLE user (
   password TEXT NOT NULL
 );
 
+/* Generic Games */
+
+/* The types of games that are available to play */
+CREATE TABLE game_type (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(40) NOT NULL,
+  description TEXT NOT NULL
+);
+
+/* Used to keep track of game information */
+CREATE TABLE game (
+  id SERIAL PRIMARY KEY,
+  game_type_id BIGINT UNSIGNED NOT NULL,
+  name VARCHAR(40) NOT NULL,
+  private_game BOOLEAN NOT NULL,
+  turn INT NOT NULL,
+  created_time DATETIME NOT NULL,
+  start_time DATETIME DEFAULT NULL,
+  end_time DATETIME DEFAULT NULL,
+  password TEXT,
+  FOREIGN KEY(game_type_id) REFERENCES game_type(id)
+);
+
+/* Custom rules */
+CREATE TABLE rule (
+  id SERIAL PRIMARY KEY,
+  game_type_id BIGINT UNSIGNED NOT NULL,
+  name VARCHAR(40) NOT NULL,
+  description TEXT NOT NULL,
+  FOREIGN KEY(game_type_id) REFERENCES game_type(id)
+);
+
+/* Custom rules that are applied to the game */
+CREATE TABLE game_rule (
+  id SERIAL PRIMARY KEY,
+  game_id BIGINT UNSIGNED NOT NULL,
+  rule_id BIGINT UNSIGNED NOT NULL,
+  FOREIGN KEY(game_id) REFERENCES game(id),
+  FOREIGN KEY(rule_id) REFERENCES rule(id)
+);
+
+/* Used to keep track of game user information */
+CREATE TABLE game_user (
+  id SERIAL PRIMARY KEY,
+  game_id BIGINT UNSIGNED NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  username VARCHAR(200) NOT NULL,
+  ready BOOLEAN NOT NULL DEFAULT 0,
+  FOREIGN KEY(game_id) REFERENCES game(id),
+  FOREIGN KEY(user_id) REFERENCES user(id)
+);
+
+/* All possible actions a game could have */
+CREATE TABLE action (
+  id SERIAL PRIMARY KEY,
+  game_type_id BIGINT UNSIGNED NOT NULL,
+  name VARCHAR(50) NOT NULL,
+  system_action BOOLEAN NOT NULL,
+  FOREIGN KEY(game_type_id) REFERENCES game_type(id)
+);
+
+/* The action a player invokes */
+CREATE TABLE game_action (
+  id SERIAL PRIMARY KEY,
+  action_id BIGINT UNSIGNED NOT NULL,
+  game_user_id BIGINT UNSIGNED,
+  game_policy_id BIGINT UNSIGNED,
+  target_user_id BIGINT UNSIGNED,
+  turn INT NOT NULL,
+  action_time DATETIME NOT NULL,
+  FOREIGN KEY(game_user_id) REFERENCES game_user(id),
+  FOREIGN KEY(action_id) REFERENCES action(id),
+  FOREIGN KEY(game_policy_id) REFERENCES game_policy(id)
+);
+
+/* Secret Hitler */
+
+/* Role cards */
 CREATE TABLE role (
-  role_id INT PRIMARY KEY,
+  id SERIAL PRIMARY KEY,
   secret_identity VARCHAR(7) NOT NULL,
   party_membership BOOLEAN NOT NULL
 );
 
-CREATE TABLE policy (
-  policy_id SERIAL PRIMARY KEY,
-  fascist BOOLEAN NOT NULL
-);
-
-CREATE TABLE action (
-  action_id SERIAL PRIMARY KEY,
-  name VARCHAR(50) NOT NULL,
-  system_action BOOLEAN NOT NULL
-);
-
-CREATE TABLE rule (
-  rule_id SERIAL PRIMARY KEY,
-  name VARCHAR(50) NOT NULL,
-  description TEXT NOT NULL
-);
-
+/* Used to decode which presidential is active */
 CREATE TABLE fascist_policy_key (
-  fascist_policy_key_id SERIAL PRIMARY KEY,
+  id SERIAL PRIMARY KEY,
   name VARCHAR(50),
   description TEXT NOT NULL,
   enacted_count INT NOT NULL,
@@ -53,91 +104,55 @@ CREATE TABLE fascist_policy_key (
   max_players INT NOT NULL
 );
 
-CREATE TABLE game (
-  game_id SERIAL PRIMARY KEY,
-  name VARCHAR(40) NOT NULL,
-  private_game BOOLEAN NOT NULL,
-  turn INT NOT NULL,
-  created_time DATETIME NOT NULL,
-  start_time DATETIME DEFAULT NULL,
-  end_time DATETIME DEFAULT NULL,
-  password TEXT
+/* Used to keep track of Secret Hitler game user information */
+CREATE TABLE secret_hitler_game_user(
+  id SERIAL PRIMARY KEY,
+  game_user_id BIGINT UNSIGNED NOT NULL,
+  role_id BIGINT UNSIGNED NOT NULL DEFAULT 1,
+  president BOOLEAN NOT NULL DEFAULT 0,
+  chancellor BOOLEAN NOT NULL DEFAULT 0,
+  prev_president BOOLEAN NOT NULL DEFAULT 0,
+  prev_chancellor BOOLEAN NOT NULL DEFAULT 0,
+  confirmed_not_hitler BOOLEAN NOT NULL DEFAULT 0,
+  executed BOOLEAN NOT NULL DEFAULT 0,
+  ballot BOOLEAN DEFAULT NULL,
+  FOREIGN KEY(game_user_id) REFERENCES game_user(id),
+  FOREIGN KEY(role_id) REFERENCES role(id)
 );
 
-CREATE TABLE game_rule (
-  game_rule_id SERIAL PRIMARY KEY,
+/* Policy cards */
+CREATE TABLE policy (
+  id SERIAL PRIMARY KEY,
   game_id BIGINT UNSIGNED NOT NULL,
-  rule_id BIGINT UNSIGNED NOT NULL,
-  FOREIGN KEY(game_id) REFERENCES game(game_id),
-  FOREIGN KEY(rule_id) REFERENCES rule(rule_id)
-);
-
-CREATE TABLE game_user (
-  game_user_id SERIAL PRIMARY KEY,
-  game_id BIGINT UNSIGNED NOT NULL,
-  user_id BIGINT UNSIGNED NOT NULL,
-  role_id INT NOT NULL DEFAULT 0,
-  username VARCHAR(200) NOT NULL,
-  ready BOOLEAN NOT NULL DEFAULT 0,
-  FOREIGN KEY(game_id) REFERENCES game(game_id),
-  FOREIGN KEY(user_id) REFERENCES user(user_id),
-  FOREIGN KEY(role_id) REFERENCES role(role_id)
-);
-
-CREATE TABLE game_policy (
-  game_policy_id SERIAL PRIMARY KEY,
-  game_id BIGINT UNSIGNED NOT NULL,
-  policy_id BIGINT UNSIGNED NOT NULL,
+  fascist BOOLEAN NOT NULL,
   deck_order INT NOT NULL,
   discarded BOOLEAN NOT NULL,
   enacted BOOLEAN NOT NULL,
-  FOREIGN KEY(game_id) REFERENCES game(game_id),
-  FOREIGN KEY(policy_id) REFERENCES policy(policy_id)
+  FOREIGN KEY(game_id) REFERENCES game(id)
 );
 
-CREATE TABLE game_user_action (
-  game_user_action_id SERIAL PRIMARY KEY,
-  game_user_id BIGINT UNSIGNED NOT NULL,
-  action_id BIGINT UNSIGNED NOT NULL,
-  turn INT NOT NULL,
-  game_policy_id BIGINT UNSIGNED,
-  target_user_id BIGINT UNSIGNED,
-  action_time DATETIME NOT NULL,
-  FOREIGN KEY(game_user_id) REFERENCES game_user(game_user_id),
-  FOREIGN KEY(action_id) REFERENCES action(action_id),
-  FOREIGN KEY(game_policy_id) REFERENCES game_policy(game_policy_id)
-);
+/* Generic Games */
 
-INSERT INTO role VALUES (0, "Temp", 0);
-INSERT INTO role VALUES (1, "Hitler", 1);
-INSERT INTO role VALUES (2, "Fascist", 1);
-INSERT INTO role VALUES (3, "Liberal", 0);
-INSERT INTO role VALUES (4, "Liberal", 0);
-INSERT INTO role VALUES (5, "Liberal", 0);
-INSERT INTO role VALUES (6, "Liberal", 0);
-INSERT INTO role VALUES (7, "Fascist", 1);
-INSERT INTO role VALUES (8, "Liberal", 0);
-INSERT INTO role VALUES (9, "Fascist", 1);
-INSERT INTO role VALUES (10, "Liberal", 0);
+INSERT INTO game_type("name", "description") VALUES ("Axis and Allies 1940 Global, Second Edition", "2 - 9 player game");
+INSERT INTO game_type("name", "description") VALUES ("Secret Hitler", "5 to 10 player game");
 
-INSERT INTO policy(fascist) VALUES (0);
-INSERT INTO policy(fascist) VALUES (0);
-INSERT INTO policy(fascist) VALUES (0);
-INSERT INTO policy(fascist) VALUES (0);
-INSERT INTO policy(fascist) VALUES (0);
-INSERT INTO policy(fascist) VALUES (0);
+/* Secret Hitler */
 
-INSERT INTO policy(fascist) VALUES (1);
-INSERT INTO policy(fascist) VALUES (1);
-INSERT INTO policy(fascist) VALUES (1);
-INSERT INTO policy(fascist) VALUES (1);
-INSERT INTO policy(fascist) VALUES (1);
-INSERT INTO policy(fascist) VALUES (1);
-INSERT INTO policy(fascist) VALUES (1);
-INSERT INTO policy(fascist) VALUES (1);
-INSERT INTO policy(fascist) VALUES (1);
-INSERT INTO policy(fascist) VALUES (1);
-INSERT INTO policy(fascist) VALUES (1);
+INSERT INTO rule(game_type_id, name, description) VALUES (2, "Shadow Democracy", "Player ballots are not shown during and after voting");
+INSERT INTO rule(game_type_id, name, description) VALUES (2, "Political Leverage", "If the group rejects three governments in a row, any power granted by the enacted policy is granted to the previously elected president");
+INSERT INTO rule(game_type_id, name, description) VALUES (2, "Underground Nazi Network", "Fascist players, excluding Hitler, will see who their other teammates are for the duration of the game");
+
+INSERT INTO role(secret_identity, party_membership) VALUES ("Hitler", 1);
+INSERT INTO role(secret_identity, party_membership) VALUES ("Fascist", 1);
+INSERT INTO role(secret_identity, party_membership) VALUES ("Liberal", 0);
+INSERT INTO role(secret_identity, party_membership) VALUES ("Liberal", 0);
+INSERT INTO role(secret_identity, party_membership) VALUES ("Liberal", 0);
+INSERT INTO role(secret_identity, party_membership) VALUES ("Liberal", 0);
+INSERT INTO role(secret_identity, party_membership) VALUES ("Fascist", 1);
+INSERT INTO role(secret_identity, party_membership) VALUES ("Liberal", 0);
+INSERT INTO role(secret_identity, party_membership) VALUES ("Fascist", 1);
+INSERT INTO role(secret_identity, party_membership) VALUES ("Liberal", 0);
+INSERT INTO role(secret_identity, party_membership) VALUES ("Temp", 0);
 
 /* Used to determine Presidential Powers */
 INSERT INTO fascist_policy_key(name, description, enacted_count, min_players, max_players) VALUES (null, "A blank policy", 1, 5, 8);
@@ -149,53 +164,49 @@ INSERT INTO fascist_policy_key(name, description, enacted_count, min_players, ma
 INSERT INTO fascist_policy_key(name, description, enacted_count, min_players, max_players) VALUES ("execution", "The President must kill a player.", 4, 5, 10);
 INSERT INTO fascist_policy_key(name, description, enacted_count, min_players, max_players) VALUES ("execution-veto", "The President must kill a player. Veto power is unlocked.", 5, 5, 10);
 
-INSERT INTO action(name, system_action) VALUES ("Game began", 1);
-INSERT INTO action(name, system_action) VALUES ("Fascists won", 1);
-INSERT INTO action(name, system_action) VALUES ("Liberals won", 1);
-INSERT INTO action(name, system_action) VALUES ("Game ended", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Game began", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Fascists won", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Liberals won", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Game ended", 1);
 
 /* Election */
-INSERT INTO action(name, system_action) VALUES ("Election began", 1);
-INSERT INTO action(name, system_action) VALUES ("Vote passed", 1);
-INSERT INTO action(name, system_action) VALUES ("Vote failed", 1);
-INSERT INTO action(name, system_action) VALUES ("Election tracker increased", 1);
-INSERT INTO action(name, system_action) VALUES ("Election tracker reset", 1);
-INSERT INTO action(name, system_action) VALUES ("Top policy enacted", 1);
-INSERT INTO action(name, system_action) VALUES ("Election ended", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Election began", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Vote passed", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Vote failed", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Election tracker increased", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Election tracker reset", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Top policy enacted", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Election ended", 1);
 
-INSERT INTO action(name, system_action) VALUES ("Nominated for president", 0);
-INSERT INTO action(name, system_action) VALUES ("Nominated for chancellor", 0);
-INSERT INTO action(name, system_action) VALUES ("Voted Ja!", 0);
-INSERT INTO action(name, system_action) VALUES ("Voted Nein!", 0);
-INSERT INTO action(name, system_action) VALUES ("Elected president", 0);
-INSERT INTO action(name, system_action) VALUES ("Elected chancellor", 0);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Nominated for president", 0);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Nominated for chancellor", 0);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Voted Ja!", 0);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Voted Nein!", 0);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Elected president", 0);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Elected chancellor", 0);
 
 /* Legislative Session */
-INSERT INTO action(name, system_action) VALUES ("Legislative Session began", 1);
-INSERT INTO action(name, system_action) VALUES ("Fascist policy enacted", 1);
-INSERT INTO action(name, system_action) VALUES ("Liberal policy enacted", 1);
-INSERT INTO action(name, system_action) VALUES ("Legislative Session ended", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Legislative Session began", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Fascist policy enacted", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Liberal policy enacted", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Legislative Session ended", 1);
 
-INSERT INTO action(name, system_action) VALUES ("Discarded", 0);
-INSERT INTO action(name, system_action) VALUES ("Enacted", 0);
-INSERT INTO action(name, system_action) VALUES ("Requested veto", 0);
-INSERT INTO action(name, system_action) VALUES ("Denied veto", 0);
-INSERT INTO action(name, system_action) VALUES ("Accepted veto", 0);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Discarded", 0);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Enacted", 0);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Requested veto", 0);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Denied veto", 0);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Accepted veto", 0);
 
 /* Executive Action */
-INSERT INTO action(name, system_action) VALUES ("Executive action began", 1);
-INSERT INTO action(name, system_action) VALUES ("Investigate Loyalty", 1);
-INSERT INTO action(name, system_action) VALUES ("Call Special Election", 1);
-INSERT INTO action(name, system_action) VALUES ("Policy Peek", 1);
-INSERT INTO action(name, system_action) VALUES ("Execution", 1);
-INSERT INTO action(name, system_action) VALUES ("Veto Power", 1);
-INSERT INTO action(name, system_action) VALUES ("Executive action ended", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Executive action began", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Investigate Loyalty", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Call Special Election", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Policy Peek", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Execution", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Veto Power", 1);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Executive action ended", 1);
 
-INSERT INTO action(name, system_action) VALUES ("Investigated loyalty", 0);
-INSERT INTO action(name, system_action) VALUES ("Called Special Election", 0);
-INSERT INTO action(name, system_action) VALUES ("Examined top 3 policies", 0);
-INSERT INTO action(name, system_action) VALUES ("Executed", 0);
-
-INSERT INTO rule(name, description) VALUES ("Shadow Democracy", "Player ballots are not shown during and after voting");
-INSERT INTO rule(name, description) VALUES ("Political Leverage", "If the group rejects three governments in a row, any power granted by the enacted policy is granted to the previously elected president");
-INSERT INTO rule(name, description) VALUES ("Underground Nazi Network", "Fascist players, excluding Hitler, will see who their other teammates are for the duration of the game");
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Investigated loyalty", 0);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Called Special Election", 0);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Examined top 3 policies", 0);
+INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Executed", 0);
