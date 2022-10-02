@@ -95,6 +95,7 @@ CREATE TABLE game_action (
   turn INT NOT NULL,
   action_time DATETIME NOT NULL,
   FOREIGN KEY(game_id) REFERENCES game(id),
+  FOREIGN KEY(game_user_id) REFERENCES game_user(id),
   FOREIGN KEY(action_id) REFERENCES action(id)
 );
 
