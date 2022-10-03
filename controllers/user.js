@@ -78,8 +78,8 @@ exports.login = async (req, res) => {
     return res.status(401).send("Incorrect password");
   }
 
-  //Get the user_id and account_type
-  const query = "SELECT user_id, account_type FROM user WHERE email = ?";
+  //Get the user id and account_type
+  const query = "SELECT id, account_type FROM user WHERE email = ?";
   const params = [email];
 
   let userData = await new Promise((resolve, reject) => {
@@ -93,14 +93,14 @@ exports.login = async (req, res) => {
     });
   });
 
-  if (!userData.user_id) {
-    return res.status(401).send("Couldn't get user_id");
+  if (!userData.id) {
+    return res.status(401).send("Couldn't get user id");
   }
 
   //Update the last_used date
   await new Promise((resolve, reject) => {
-    const query2 = "UPDATE user SET last_used = now() where user_id = ?";
-    const params2 = [userData.user_id];
+    const query2 = "UPDATE user SET last_used = now() where id = ?";
+    const params2 = [userData.id];
 
     connection.query(query2, params2, (error, results) => {
       if (error) {
@@ -114,7 +114,7 @@ exports.login = async (req, res) => {
   //generate jwt
   let jwt = generateJWT(
     {
-      user_id: userData.user_id,
+      id: userData.id,
       email: email,
       account_type: userData.account_type,
     },
@@ -131,8 +131,8 @@ exports.login = async (req, res) => {
 */
 exports.get = async (req, res) => {
   const query =
-    "SELECT user_id, email, first_name, last_name, account_type, last_used from user WHERE user_id = ?";
-  const params = [req.user.user_id];
+    "SELECT id, email, first_name, last_name, account_type, last_used from user WHERE id = ?";
+  const params = [req.user.id];
 
   connection.query(query, params, (error, results) => {
     if (error) {
@@ -147,11 +147,11 @@ exports.get = async (req, res) => {
 
 /*
   Route: /user/edit
-  Updates User on user_id, with changing of password.
+  Updates User on id, with changing of password.
 */
 exports.edit = async (req, res) => {
   const query =
-    "UPDATE user SET first_name = ?, last_name = ?, email = ?, password = ? WHERE user_id = ?";
+    "UPDATE user SET first_name = ?, last_name = ?, email = ?, password = ? WHERE id = ?";
 
   let password = await bcrypt.hash(req.body.password, saltRounds);
 
@@ -160,7 +160,7 @@ exports.edit = async (req, res) => {
     req.body.last_name,
     req.body.email,
     password,
-    req.user.user_id,
+    req.user.id,
   ];
 
   connection.query(query, params, (error, results) => {
@@ -181,8 +181,8 @@ exports.forgotPassword = async (req, res) => {
   let email = req.body.email;
   let userExists = await checkIfUserExists(email);
   if (userExists) {
-    //Get the user_id and account_type
-    const query = "SELECT user_id, account_type FROM user WHERE email = ?";
+    //Get the user id and account_type
+    const query = "SELECT id, account_type FROM user WHERE email = ?";
     const params = [email];
 
     let userData = await new Promise((resolve, reject) => {
@@ -196,14 +196,14 @@ exports.forgotPassword = async (req, res) => {
       });
     });
 
-    if (!userData.user_id) {
-      return res.status(401).send("Couldn't get user_id");
+    if (!userData.id) {
+      return res.status(401).send("Couldn't get user id");
     }
 
     //generate jwt
     let jwt = generateJWT(
       {
-        user_id: userData.user_id,
+        id: userData.id,
         email: email,
         account_type: userData.account_type,
       },
@@ -260,10 +260,10 @@ exports.forgotPassword = async (req, res) => {
   Updates a user's password
 */
 exports.resetPassword = async (req, res) => {
-  const query = "UPDATE user SET password = ? WHERE user_id = ?";
+  const query = "UPDATE user SET password = ? WHERE id = ?";
   let password = await bcrypt.hash(req.body.password, saltRounds);
 
-  const params = [password, req.user.user_id];
+  const params = [password, req.user.id];
 
   connection.query(query, params, (error, results) => {
     if (error) {

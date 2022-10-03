@@ -5,7 +5,9 @@ const app = express();
 
 var allowedOrigins = [
   "https://secrethitleronline.duckdns.org",
+  "https://secrethitleronline-d.duckdns.org",
   "https://www.secrethitleronline.duckdns.org",
+  "https://www.secrethitleronline-d.duckdns.org",
   "http://localhost:3000",
 ];
 app.use(
@@ -49,7 +51,11 @@ app.use("/", require("./routes"));
 const server = require("http").createServer(app);
 const io = require("socket.io")(server, {
   cors: {
-    origin: ["http://localhost:3000", "https://secrethitleronline.duckdns.org"],
+    origin: [
+      "http://localhost:3000",
+      "https://secrethitleronline.duckdns.org",
+      "https://secrethitleronline-d.duckdns.org",
+    ],
     methods: ["GET", "POST"],
   },
 });
@@ -1087,7 +1093,7 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => disconnect(socket));
 });
 
-const PORT = 3445;
+const PORT = 3447;
 
 server.listen(PORT, () => {
   console.log(`We're live on port ${PORT}!`);
