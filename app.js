@@ -120,7 +120,7 @@ const getUserLobbies = (userId) => {
 
 const getGameUsers = (gameId) => {
   const query =
-    "SELECT game_user.*, role.secret_identity, role.party_membership FROM game_user JOIN role ON game_user.role_id = role.role_id WHERE game_id = ?";
+    "SELECT game_user.*, role.secret_identity, role.party_membership FROM game_user JOIN role ON game_user.role_id = role.role_id WHERE game_id = ? AND assassinated = FALSE";
   const params = [gameId];
 
   return new Promise((resolve, reject) => {
@@ -404,6 +404,26 @@ const assignPrevChancellor = (gameUserId, value) => {
     });
   });
 }; /* assignPrevChancellor */
+
+/* Executes a player */
+const executePlayer = (gameUserId, value) => {
+  const query = "UPDATE game_user SET assassinated = ? WHERE game_user_id = ?";
+  const params = [value, gameUserId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+
+      if (result.affectedRows === 0) {
+        return resolve(false);
+      } else {
+        return resolve(true);
+      }
+    });
+  });
+}; /* executePlayer */
 
 const assignConfirmedNotHitler = (gameUserId, value) => {
   const query =
@@ -848,8 +868,10 @@ io.on("connection", (socket) => {
             await assignPrevChancellor(prevChancellor.game_user_id, 0);
 
           /* Assign Prev President and Prev chancellor to new ones */
-          await assignPrevPresident(currentPresident.game_user_id, 1);
-          await assignPrevChancellor(currentChancellor.game_user_id, 1);
+          if (currentPresident)
+            await assignPrevPresident(currentPresident.game_user_id, 1);
+          if (currentChancellor)
+            await assignPrevChancellor(currentChancellor.game_user_id, 1);
 
           /* Check for win condition of Hitler elected chancellor after 3 fascist policies */
           let gamePolicies = await getGamePolicies(gameId);
@@ -859,7 +881,7 @@ io.on("connection", (socket) => {
             );
             if (enactedFascist.length >= 3) {
               if (currentChancellor.role_id === 1) {
-                io.to(gameId).emit("fascists-win", {
+                io.to(gameId).emit("game-win", {
                   message:
                     "Hitler was elected Chancellor after 3 fascist policies were enacted!",
                 });
@@ -1013,7 +1035,7 @@ io.on("connection", (socket) => {
     });
     /* Check for win condition of policy length */
     if (enactedFascist.length === 6) {
-      io.to(gameId).emit("fascists-win", {
+      io.to(gameId).emit("game-win", {
         message: "Fascists have enacted 6 fascist policies!",
       });
       console.log(
@@ -1022,7 +1044,7 @@ io.on("connection", (socket) => {
       return;
     }
     if (enactedLiberal.length === 5) {
-      io.to(gameId).emit("liberals-win", {
+      io.to(gameId).emit("game-win", {
         message: "Liberals have enacted 5 liberal policies!",
       });
       console.log(
@@ -1089,11 +1111,98 @@ io.on("connection", (socket) => {
     );
   }); /* enact-policy */
 
+  socket.on("request-veto", async (data) => {
+    let gameId = data.gameId;
+
+    /* Grab all users in game */
+    let result = await getGameUsers(gameId);
+    if (!result) return;
+    let president = result.filter((gameUser) => gameUser.president === 1)[0];
+
+    io.to(getKey(connectedUsers, president.user_id)).emit("requested-veto");
+  });
+
+  socket.on("veto-response", async (data) => {
+    let gameId = data.gameId;
+    let veto = data.veto;
+
+    /* The president has refused to veto */
+    if (!veto) {
+      /* Grab all users in game */
+      let result = await getGameUsers(gameId);
+      if (!result) return;
+      let chancellor = result.filter(
+        (gameUser) => gameUser.chancellor === 1
+      )[0];
+
+      io.to(getKey(connectedUsers, chancellor.user_id)).emit(
+        "chancellor-policies",
+        { declinedVeto: true }
+      );
+      return;
+    }
+    //TODO: Discard the current 2 policies, increase the fail counter, and assign next president
+  });
+
+  socket.on("presidential-power", async (data) => {
+    let gameId = data.gameId;
+    let gameUserId = data.game_user_id;
+    let value = data.value;
+    let execution = data.execution;
+    let roleId = data.role_id;
+
+    if (execution) {
+      await executePlayer(gameUserId, value);
+      if (roleId === 1) {
+        io.to(gameId).emit("game-win", {
+          message: "Hitler was executed!",
+        });
+        await setEndTime(gameId);
+        console.log(
+          "Liberals win by Hitler getting executed in game " + gameId + "!"
+        );
+        return;
+      }
+    }
+
+    /* Grab all users in game */
+    let result = await getGameUsers(gameId);
+    if (!result) return;
+    let lastPresident = result.filter(
+      (gameUser) => gameUser.president === 1
+    )[0];
+    let lastChancellor = result.filter(
+      (gameUser) => gameUser.chancellor === 1
+    )[0];
+
+    await assignPresident(lastPresident.game_user_id, 0);
+
+    // Ensure the last chancellor wasn't executed
+    if (lastChancellor) {
+      await assignChancellor(lastChancellor.game_user_id, 0);
+    }
+
+    /* Assign next president */
+    let nextPresident = getNextItem(result, lastPresident);
+    await assignPresident(nextPresident.game_user_id, 1);
+
+    /* Send updated list of game users to lobby */
+    result = await getGameUsers(gameId);
+    if (!result) return;
+    io.to(gameId).emit("get-game-users", {
+      result,
+    });
+    /* Let the president choose a chancellor */
+    io.to(getKey(connectedUsers, nextPresident.user_id)).emit(
+      "choose-chancellor"
+    );
+  });
+
   socket.on("logout", () => disconnect(socket));
   socket.on("disconnect", () => disconnect(socket));
 });
 
-const PORT = 3447;
+const PORT = 3445;
 
 server.listen(PORT, () => {
   console.log(`We're live on port ${PORT}!`);

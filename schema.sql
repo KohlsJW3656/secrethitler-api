@@ -175,8 +175,8 @@ INSERT INTO fascist_policy_key(name, description, enacted_count, min_players, ma
 INSERT INTO fascist_policy_key(name, description, enacted_count, min_players, max_players) VALUES ("investigate-loyalty", "The President Investigates a player's party membership card.", 2, 7, 10);
 INSERT INTO fascist_policy_key(name, description, enacted_count, min_players, max_players) VALUES ("policy-peek", "The President examines the top three cards.", 3, 5, 6);
 INSERT INTO fascist_policy_key(name, description, enacted_count, min_players, max_players) VALUES ("call-special-election", "The president picks the next presidential candidate.", 3, 7, 10);
-INSERT INTO fascist_policy_key(name, description, enacted_count, min_players, max_players) VALUES ("execution", "The President must kill a player.", 4, 5, 10);
-INSERT INTO fascist_policy_key(name, description, enacted_count, min_players, max_players) VALUES ("execution-veto", "The President must kill a player. Veto power is unlocked.", 5, 5, 10);
+INSERT INTO fascist_policy_key(name, description, enacted_count, min_players, max_players) VALUES ("execution", "The President must kill a player.", 4, 4, 10);
+INSERT INTO fascist_policy_key(name, description, enacted_count, min_players, max_players) VALUES ("execution-veto", "The President must kill a player. Veto power is unlocked.", 5, 3, 10);
 
 INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Secret Hitler Started", 1);
 INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Fascists won", 1);
