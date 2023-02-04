@@ -39,7 +39,6 @@ CREATE TABLE game (
   game_type_id BIGINT UNSIGNED NOT NULL,
   name VARCHAR(40) NOT NULL,
   private_game BOOLEAN NOT NULL,
-  turn INT NOT NULL,
   created_time DATETIME NOT NULL,
   start_time DATETIME DEFAULT NULL,
   end_time DATETIME DEFAULT NULL,
@@ -100,6 +99,14 @@ CREATE TABLE game_action (
 );
 
 /* Secret Hitler */
+
+CREATE TABLE secret_hitler_game (
+  id SERIAL PRIMARY KEY,
+  game_id BIGINT UNSIGNED UNIQUE NOT NULL,
+  turn INT NOT NULL DEFAULT 1,
+  ballot_fail_count INT NOT NULL DEFAULT 0,
+  FOREIGN KEY(game_id) REFERENCES game(id)
+);
 
 /* Role cards */
 CREATE TABLE secret_hitler_role (

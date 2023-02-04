@@ -148,6 +148,34 @@ const getGamePolicies = (gameId) => {
   });
 }; /* getGamePolicies */
 
+const getSecretHitlerGame = (gameId) => {
+  const query = "SELECT * FROM secret_hitler_game WHERE game_id = ?";
+  const params = [gameId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+      return resolve(result[0]);
+    });
+  });
+}; /* getSecretHitlerGame */
+
+const createSecretHitlerGame = (gameId) => {
+  const query = "INSERT INTO secret_hitler_game (game_id) VALUES (?)";
+  const params = [gameId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+      return resolve(result);
+    });
+  });
+}; /* createSecretHitlerGame */
+
 const createGamePolicies = (
   gameId,
   policyId,
@@ -444,6 +472,47 @@ const assignConfirmedNotHitler = (gameUserId, value) => {
     });
   });
 }; /* assignConfirmedNotHitler */
+
+/* Sets the election tracker */
+const assignElectionTracker = (gameId, value) => {
+  const query =
+    "UPDATE secret_hitler_game SET ballot_fail_count = ? WHERE game_id = ?";
+  const params = [value, gameId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+
+      if (result.affectedRows === 0) {
+        return resolve(false);
+      } else {
+        return resolve(true);
+      }
+    });
+  });
+}; /* assignElectionTracker */
+
+/* Assigns the game turn */
+const assignTurn = (gameId, value) => {
+  const query = "UPDATE secret_hitler_game SET turn = ? WHERE game_id = ?";
+  const params = [value, gameId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+
+      if (result.affectedRows === 0) {
+        return resolve(false);
+      } else {
+        return resolve(true);
+      }
+    });
+  });
+}; /* assignTurn */
 
 /* Assigns Discarded flag for a policy */
 const discardPolicy = (gamePolicyId, value) => {
@@ -767,6 +836,9 @@ io.on("connection", (socket) => {
 
                   clearInterval(timers.get(gameId));
 
+                  /* Create ballot and turn counters */
+                  await createSecretHitlerGame(gameId);
+
                   /* Create array of policies and randomize their values */
                   let policies = [];
                   for (let i = 1; i <= 17; i++) {
@@ -912,12 +984,133 @@ io.on("connection", (socket) => {
               "president-policies"
             );
           }
-          //TODO reset fail count
         } else {
           /* Failed Ballot */
           console.log("Ballot Failed in game " + gameId);
+          let secretHitlerGame = await getSecretHitlerGame(gameId);
+          if (!secretHitlerGame) return;
+
+          /* Vote has failed 3 times */
+          if (secretHitlerGame.ballot_fail_count === 2) {
+            /* Reset eligibility */
+            if (prevPresident)
+              await assignPrevPresident(prevPresident.game_user_id, 0);
+            if (prevChancellor)
+              await assignPrevChancellor(prevChancellor.game_user_id, 0);
+
+            /* Enact top policy */
+            let gamePolicies = await getGamePolicies(gameId);
+            if (!gamePolicies) return;
+            let lastEnactedPolicy = gamePolicies.filter(
+              (policy) =>
+                policy.deck_order === 1 &&
+                policy.discarded === 0 &&
+                policy.enacted === 0
+            )[0];
+            await enactPolicy(lastEnactedPolicy.game_policy_id, 1);
+
+            /* Reset election tracker */
+            await assignElectionTracker(gameId, 0);
+
+            /* Get updated policies and check to see if we need to reshuffle or fix the deck order */
+            gamePolicies = await getGamePolicies(gameId);
+            if (!gamePolicies) return;
+            let deckPolicies = gamePolicies.filter(
+              (policy) => policy.discarded === 0 && policy.enacted === 0
+            );
+            if (deckPolicies.length < 3) {
+              let discardedPolicies = gamePolicies.filter(
+                (policy) => policy.discarded === 1 && policy.enacted === 0
+              );
+              /* Unset all discarded policies */
+              await Promise.all(
+                discardedPolicies.map(async (policy) =>
+                  discardPolicy(policy.game_policy_id, 0)
+                )
+              );
+              /* Shuffle the policies and update the deck order */
+              randomizeArray(discardedPolicies);
+              await Promise.all(
+                discardedPolicies.map(async (gamePolicy, index) =>
+                  updateDeckOrder(gamePolicy.game_policy_id, index + 1)
+                )
+              );
+            } else {
+              /* Reset the deck order */
+              await Promise.all(
+                deckPolicies.map(async (gamePolicy, index) =>
+                  updateDeckOrder(gamePolicy.game_policy_id, index + 1)
+                )
+              );
+            }
+
+            /* Get updated policies and send game policies to lobby */
+            gamePolicies = await getGamePolicies(gameId);
+            if (!gamePolicies) return;
+            let enactedFascist = gamePolicies.filter(
+              (policy) => policy.enacted === 1 && policy.fascist === 1
+            );
+            let enactedLiberal = gamePolicies.filter(
+              (policy) => policy.enacted === 1 && policy.fascist === 0
+            );
+            io.to(gameId).emit("get-game-policies", {
+              gamePolicies,
+            });
+            /* Check for win condition of policy length */
+            if (enactedFascist.length === 6) {
+              io.to(gameId).emit("game-win", {
+                message: "Fascists have enacted 6 fascist policies!",
+              });
+              console.log(
+                "Fascists win by enacted 5 liberal policies in game " +
+                  gameId +
+                  "!"
+              );
+              return;
+            }
+            if (enactedLiberal.length === 5) {
+              io.to(gameId).emit("game-win", {
+                message: "Liberals have enacted 5 liberal policies!",
+              });
+              console.log(
+                "Liberals win by enacted 5 liberal policies! in game " +
+                  gameId +
+                  "!"
+              );
+              return;
+            }
+            // TODO: Check for game rule 'Political Leverage'
+            /* If the game didn't end by policy count, check for fascist policy enacted and do presidential powers */
+            if (lastEnactedPolicy.fascist && false) {
+              let presidentialPower = await getFascistPolicyKey(
+                enactedFascist.length,
+                result.length,
+                result.length
+              );
+              if (!presidentialPower) return;
+              if (presidentialPower.name !== null) {
+                console.log(
+                  "Presidential Power " +
+                    presidentialPower.name +
+                    " was issued in game " +
+                    gameId
+                );
+                io.to(getKey(connectedUsers, lastPresident.user_id)).emit(
+                  presidentialPower.name,
+                  { presidentialPower }
+                );
+                return;
+              }
+            }
+          } else {
+            /* Increase election tracker by 1 */
+            await assignElectionTracker(
+              gameId,
+              secretHitlerGame.ballot_fail_count + 1
+            );
+          }
+
           /* Unassign President and chancellor */
-          //TODO Increase fail count. If 3, unassign prev president and prev chancellor
           await assignPresident(currentPresident.game_user_id, 0);
           await assignChancellor(currentChancellor.game_user_id, 0);
 
@@ -975,6 +1168,9 @@ io.on("connection", (socket) => {
 
     /* Enact selected policy */
     await enactPolicy(gamePolicyId, value);
+
+    /* Reset election tracker */
+    await assignElectionTracker(gameId, 0);
 
     /* Grab all policies and discard the policy that was not selected */
     let gamePolicies = await getGamePolicies(gameId);
@@ -1141,7 +1337,194 @@ io.on("connection", (socket) => {
       );
       return;
     }
-    //TODO: Discard the current 2 policies, increase the fail counter, and assign next president
+    /* The president has consented to veto */
+
+    /* Grab all users in game */
+    let result = await getGameUsers(gameId);
+    if (!result) return;
+    let currentPresident = result.filter(
+      (gameUser) => gameUser.president === 1
+    )[0];
+    let currentChancellor = result.filter(
+      (gameUser) => gameUser.chancellor === 1
+    )[0];
+    let prevPresident = result.filter(
+      (gameUser) => gameUser.prev_president === 1
+    )[0];
+    let prevChancellor = result.filter(
+      (gameUser) => gameUser.prev_chancellor === 1
+    )[0];
+
+    /* Discard the remaining policies */
+    let gamePolicies = await getGamePolicies(gameId);
+    if (!gamePolicies) return;
+    let remainingPolicies = gamePolicies.filter(
+      (policy) =>
+        policy.deck_order <= 3 && policy.discarded === 0 && policy.enacted === 0
+    );
+    await Promise.all(
+      remainingPolicies.map(async (policy) =>
+        discardPolicy(policy.game_policy_id, 1)
+      )
+    );
+
+    /* Get updated policies and check to see if we need to reshuffle or fix the deck order */
+    gamePolicies = await getGamePolicies(gameId);
+    if (!gamePolicies) return;
+    let deckPolicies = gamePolicies.filter(
+      (policy) => policy.discarded === 0 && policy.enacted === 0
+    );
+    if (deckPolicies.length < 3) {
+      let discardedPolicies = gamePolicies.filter(
+        (policy) => policy.discarded === 1 && policy.enacted === 0
+      );
+      /* Unset all discarded policies */
+      await Promise.all(
+        discardedPolicies.map(async (policy) =>
+          discardPolicy(policy.game_policy_id, 0)
+        )
+      );
+      /* Shuffle the policies and update the deck order */
+      randomizeArray(discardedPolicies);
+      await Promise.all(
+        discardedPolicies.map(async (gamePolicy, index) =>
+          updateDeckOrder(gamePolicy.game_policy_id, index + 1)
+        )
+      );
+    } else {
+      /* Reset the deck order */
+      await Promise.all(
+        deckPolicies.map(async (gamePolicy, index) =>
+          updateDeckOrder(gamePolicy.game_policy_id, index + 1)
+        )
+      );
+    }
+
+    /* Get updated policies and send game policies to lobby */
+    gamePolicies = await getGamePolicies(gameId);
+    if (!gamePolicies) return;
+    io.to(gameId).emit("get-game-policies", {
+      gamePolicies,
+    });
+
+    /* Check the election tracker */
+    let secretHitlerGame = await getSecretHitlerGame(gameId);
+    if (!secretHitlerGame) return;
+
+    /* Vote has failed 3 times */
+    if (secretHitlerGame.ballot_fail_count === 2) {
+      /* Reset eligibility */
+      if (prevPresident)
+        await assignPrevPresident(prevPresident.game_user_id, 0);
+      if (prevChancellor)
+        await assignPrevChancellor(prevChancellor.game_user_id, 0);
+
+      /* Enact top policy */
+      gamePolicies = await getGamePolicies(gameId);
+      if (!gamePolicies) return;
+      await enactPolicy(
+        gamePolicies.filter(
+          (policy) =>
+            policy.deck_order === 1 &&
+            policy.discarded === 0 &&
+            policy.enacted === 0
+        )[0].game_policy_id,
+        1
+      );
+
+      /* Reset election tracker */
+      await assignElectionTracker(gameId, 0);
+
+      /* Get updated policies and check to see if we need to reshuffle or fix the deck order */
+      gamePolicies = await getGamePolicies(gameId);
+      if (!gamePolicies) return;
+      let deckPolicies = gamePolicies.filter(
+        (policy) => policy.discarded === 0 && policy.enacted === 0
+      );
+      if (deckPolicies.length < 3) {
+        let discardedPolicies = gamePolicies.filter(
+          (policy) => policy.discarded === 1 && policy.enacted === 0
+        );
+        /* Unset all discarded policies */
+        await Promise.all(
+          discardedPolicies.map(async (policy) =>
+            discardPolicy(policy.game_policy_id, 0)
+          )
+        );
+        /* Shuffle the policies and update the deck order */
+        randomizeArray(discardedPolicies);
+        await Promise.all(
+          discardedPolicies.map(async (gamePolicy, index) =>
+            updateDeckOrder(gamePolicy.game_policy_id, index + 1)
+          )
+        );
+      } else {
+        /* Reset the deck order */
+        await Promise.all(
+          deckPolicies.map(async (gamePolicy, index) =>
+            updateDeckOrder(gamePolicy.game_policy_id, index + 1)
+          )
+        );
+      }
+
+      /* Get updated policies and send game policies to lobby */
+      gamePolicies = await getGamePolicies(gameId);
+      if (!gamePolicies) return;
+      let enactedFascist = gamePolicies.filter(
+        (policy) => policy.enacted === 1 && policy.fascist === 1
+      );
+      let enactedLiberal = gamePolicies.filter(
+        (policy) => policy.enacted === 1 && policy.fascist === 0
+      );
+      io.to(gameId).emit("get-game-policies", {
+        gamePolicies,
+      });
+      /* Check for win condition of policy length */
+      if (enactedFascist.length === 6) {
+        io.to(gameId).emit("game-win", {
+          message: "Fascists have enacted 6 fascist policies!",
+        });
+        console.log(
+          "Fascists win by enacted 5 liberal policies in game " + gameId + "!"
+        );
+        return;
+      }
+      if (enactedLiberal.length === 5) {
+        io.to(gameId).emit("game-win", {
+          message: "Liberals have enacted 5 liberal policies!",
+        });
+        console.log(
+          "Liberals win by enacted 5 liberal policies! in game " + gameId + "!"
+        );
+        return;
+      }
+    } else {
+      /* Increase election tracker by 1 */
+      await assignElectionTracker(
+        gameId,
+        secretHitlerGame.ballot_fail_count + 1
+      );
+    }
+
+    /* Unassign President and chancellor */
+    await assignPresident(currentPresident.game_user_id, 0);
+    await assignChancellor(currentChancellor.game_user_id, 0);
+
+    /* Assign the next president */
+    let nextPresident = getNextItem(result, currentPresident);
+    await assignPresident(nextPresident.game_user_id, 1);
+
+    result = await getGameUsers(gameId);
+    if (result) {
+      /* Send updated list of game users to lobby */
+      io.to(gameId).emit("get-game-users", {
+        result,
+      });
+      /* Let the president choose a chancellor */
+      io.to(getKey(connectedUsers, nextPresident.user_id)).emit(
+        "choose-chancellor"
+      );
+    }
   });
 
   socket.on("presidential-power", async (data) => {
