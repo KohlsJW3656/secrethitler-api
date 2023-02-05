@@ -453,6 +453,25 @@ const executePlayer = (gameUserId, value) => {
   });
 }; /* executePlayer */
 
+const assignInvestigated = (gameUserId, value) => {
+  const query = "UPDATE game_user SET investigated = ? WHERE game_user_id = ?";
+  const params = [value, gameUserId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+
+      if (result.affectedRows === 0) {
+        return resolve(false);
+      } else {
+        return resolve(true);
+      }
+    });
+  });
+}; /* assignInvestigated */
+
 const assignConfirmedNotHitler = (gameUserId, value) => {
   const query =
     "UPDATE game_user SET confirmed_not_hitler = ? WHERE game_user_id = ?";
@@ -1531,8 +1550,13 @@ io.on("connection", (socket) => {
     let gameId = data.gameId;
     let gameUserId = data.game_user_id;
     let value = data.value;
+    let investigation = data.investigation;
     let execution = data.execution;
     let roleId = data.role_id;
+
+    if (investigation) {
+      await assignInvestigated(gameUserId, value);
+    }
 
     if (execution) {
       await executePlayer(gameUserId, value);
