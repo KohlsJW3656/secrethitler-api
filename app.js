@@ -492,6 +492,26 @@ const assignConfirmedNotHitler = (gameUserId, value) => {
   });
 }; /* assignConfirmedNotHitler */
 
+const assignSpecialElectionPresident = (gameUserId, value) => {
+  const query =
+    "UPDATE game_user SET special_election_president = ? WHERE game_user_id = ?";
+  const params = [value, gameUserId];
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (error, result) => {
+      if (error) {
+        return reject();
+      }
+
+      if (result.affectedRows === 0) {
+        return resolve(false);
+      } else {
+        return resolve(true);
+      }
+    });
+  });
+}; /* assignConfirmedNotHitler */
+
 /* Sets the election tracker */
 const assignElectionTracker = (gameId, value) => {
   const query =
@@ -945,6 +965,9 @@ io.on("connection", (socket) => {
         let prevChancellor = result.filter(
           (gameUser) => gameUser.prev_chancellor === 1
         )[0];
+        let specialElectionPresident = result.filter(
+          (gameUser) => gameUser.special_election_president === 1
+        )[0];
         /* Unassign ballot status */
         for (let i = 0; i < result.length; i++) {
           await castBallot(result[i].game_user_id, null);
@@ -1135,6 +1158,13 @@ io.on("connection", (socket) => {
 
           /* Assign the next president */
           let nextPresident = getNextItem(result, currentPresident);
+          if (specialElectionPresident) {
+            nextPresident = getNextItem(result, specialElectionPresident);
+            await assignSpecialElectionPresident(
+              specialElectionPresident.game_user_id,
+              0
+            );
+          }
           await assignPresident(nextPresident.game_user_id, 1);
 
           result = await getGameUsers(gameId);
@@ -1277,6 +1307,9 @@ io.on("connection", (socket) => {
     let lastChancellor = result.filter(
       (gameUser) => gameUser.chancellor === 1
     )[0];
+    let specialElectionPresident = result.filter(
+      (gameUser) => gameUser.special_election_president === 1
+    )[0];
 
     let lastEnactedPolicy = gamePolicies.filter(
       (policy) => policy.game_policy_id === gamePolicyId
@@ -1310,8 +1343,15 @@ io.on("connection", (socket) => {
     await assignPresident(lastPresident.game_user_id, 0);
     await assignChancellor(lastChancellor.game_user_id, 0);
 
-    /* Assign next president */
+    /* Assign the next president */
     let nextPresident = getNextItem(result, lastPresident);
+    if (specialElectionPresident) {
+      nextPresident = getNextItem(result, specialElectionPresident);
+      await assignSpecialElectionPresident(
+        specialElectionPresident.game_user_id,
+        0
+      );
+    }
     await assignPresident(nextPresident.game_user_id, 1);
 
     /* Send updated list of game users to lobby */
@@ -1551,11 +1591,47 @@ io.on("connection", (socket) => {
     let gameUserId = data.game_user_id;
     let value = data.value;
     let investigation = data.investigation;
+    let specialElection = data.specialElection;
     let execution = data.execution;
     let roleId = data.role_id;
 
+    /* Grab all users in game */
+    let result = await getGameUsers(gameId);
+    if (!result) return;
+    let lastPresident = result.filter(
+      (gameUser) => gameUser.president === 1
+    )[0];
+    let lastChancellor = result.filter(
+      (gameUser) => gameUser.chancellor === 1
+    )[0];
+    let specialElectionPresident = result.filter(
+      (gameUser) => gameUser.special_election_president === 1
+    )[0];
+    let selectedUser = result.filter(
+      (gameUser) => gameUser.game_user_id === gameUserId
+    )[0];
+
     if (investigation) {
       await assignInvestigated(gameUserId, value);
+    }
+
+    let nextPresident;
+    if (specialElection) {
+      // Keep track of the president that issued the special election
+      nextPresident = selectedUser;
+      await assignSpecialElectionPresident(lastPresident.game_user_id, value);
+    }
+
+    if (specialElectionPresident) {
+      nextPresident = getNextItem(result, specialElectionPresident);
+      // If the player to the right of the special election president was executed, pass it off to the next player
+      if (selectedUser === nextPresident && execution) {
+        nextPresident = getNextItem(result, selectedUser);
+      }
+      await assignSpecialElectionPresident(
+        specialElectionPresident.game_user_id,
+        0
+      );
     }
 
     if (execution) {
@@ -1573,24 +1649,20 @@ io.on("connection", (socket) => {
     }
 
     /* Grab all users in game */
-    let result = await getGameUsers(gameId);
+    result = await getGameUsers(gameId);
     if (!result) return;
-    let lastPresident = result.filter(
-      (gameUser) => gameUser.president === 1
-    )[0];
-    let lastChancellor = result.filter(
-      (gameUser) => gameUser.chancellor === 1
-    )[0];
+    lastPresident = result.filter((gameUser) => gameUser.president === 1)[0];
 
+    // Unassign last president
     await assignPresident(lastPresident.game_user_id, 0);
 
-    // Ensure the last chancellor wasn't executed
-    if (lastChancellor) {
-      await assignChancellor(lastChancellor.game_user_id, 0);
-    }
+    // Unassign last chancellor
+    await assignChancellor(lastChancellor.game_user_id, 0);
 
     /* Assign next president */
-    let nextPresident = getNextItem(result, lastPresident);
+    if (!nextPresident) {
+      nextPresident = getNextItem(result, lastPresident);
+    }
     await assignPresident(nextPresident.game_user_id, 1);
 
     /* Send updated list of game users to lobby */
