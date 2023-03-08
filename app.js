@@ -1051,6 +1051,10 @@ io.on("connection", (socket) => {
             )[0];
             await enactPolicy(lastEnactedPolicy.game_policy_id, 1);
 
+            /* Send down election tracker */
+            io.to(gameId).emit("get-election-tracker", {
+              electionTracker: secretHitlerGame.ballot_fail_count + 1,
+            });
             /* Reset election tracker */
             await assignElectionTracker(gameId, 0);
 
@@ -1152,6 +1156,13 @@ io.on("connection", (socket) => {
             );
           }
 
+          // Send down election tracker
+          secretHitlerGame = await getSecretHitlerGame(gameId);
+          if (!secretHitlerGame) return;
+          io.to(gameId).emit("get-election-tracker", {
+            electionTracker: secretHitlerGame.ballot_fail_count,
+          });
+
           /* Unassign President and chancellor */
           await assignPresident(currentPresident.game_user_id, 0);
           await assignChancellor(currentChancellor.game_user_id, 0);
@@ -1220,6 +1231,11 @@ io.on("connection", (socket) => {
 
     /* Reset election tracker */
     await assignElectionTracker(gameId, 0);
+
+    // Send down election tracker
+    io.to(gameId).emit("get-election-tracker", {
+      electionTracker: 0,
+    });
 
     /* Grab all policies and discard the policy that was not selected */
     let gamePolicies = await getGamePolicies(gameId);
@@ -1491,6 +1507,11 @@ io.on("connection", (socket) => {
         1
       );
 
+      // Send down election tracker
+      io.to(gameId).emit("get-election-tracker", {
+        electionTracker: secretHitlerGame.ballot_fail_count + 1,
+      });
+
       /* Reset election tracker */
       await assignElectionTracker(gameId, 0);
 
@@ -1564,6 +1585,13 @@ io.on("connection", (socket) => {
         secretHitlerGame.ballot_fail_count + 1
       );
     }
+
+    // Send down election tracker
+    secretHitlerGame = await getSecretHitlerGame(gameId);
+    if (!secretHitlerGame) return;
+    io.to(gameId).emit("get-election-tracker", {
+      electionTracker: secretHitlerGame.ballot_fail_count,
+    });
 
     /* Unassign President and chancellor */
     await assignPresident(currentPresident.game_user_id, 0);
