@@ -154,6 +154,55 @@ CREATE TABLE secret_hitler_policy (
   FOREIGN KEY(game_id) REFERENCES game(id)
 );
 
+/* Axis and Allies */
+
+CREATE TABLE axis_and_allies_country (
+  id SERIAL PRIMARY KEY,
+  game_id BIGINT UNSIGNED NOT NULL,
+  name VARCHAR(30) NOT NULL,
+  FOREIGN KEY(game_id) REFERENCES game(id)
+);
+
+CREATE TABLE axis_and_allies_unit (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(20) NOT NULL,
+  attack INT,
+  defense INT,
+  movement INT,
+  cost INT NOT NULL
+);
+
+CREATE TABLE axis_and_allies_country_unit (
+  id SERIAL PRIMARY KEY,
+  game_id BIGINT UNSIGNED NOT NULL,
+  unit_id BIGINT UNSIGNED NOT NULL,
+  FOREIGN KEY(game_id) REFERENCES game(id),
+  FOREIGN KEY(unit_id) REFERENCES axis_and_allies_unit(id)
+);
+
+CREATE TABLE axis_and_allies_region (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(40) NOT NULL,
+  ipc INT,
+  is_water BOOLEAN NOT NULL DEFAULT 0,
+  is_coastal BOOLEAN NOT NULL DEFAULT 0,
+  is_island BOOLEAN NOT NULL DEFAULT 0,
+  adj_regions INT ARRAY
+);
+
+CREATE TABLE axis_and_allies_country_territory (
+  id SERIAL PRIMARY KEY,
+);
+
+/* Used to keep track of Axis and Allies game user information */
+CREATE TABLE axis_and_allies_game_user(
+  id SERIAL PRIMARY KEY,
+  game_user_id BIGINT UNSIGNED NOT NULL,
+  axis_and_allies_country_id BIGINT UNSIGNED NOT NULL DEFAULT 1,
+  FOREIGN KEY(game_user_id) REFERENCES game_user(id),
+  FOREIGN KEY(axis_and_allies_country_id) REFERENCES axis_and_allies_country(id)
+);
+
 /* Generic Games */
 
 INSERT INTO game_type(name, description) VALUES ("Axis and Allies 1940 Global, Second Edition", "2 - 9 player game");
