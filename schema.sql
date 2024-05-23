@@ -1,13 +1,13 @@
 DROP TABLE IF EXISTS game_rule;
-DROP TABLE IF EXISTS secret_hitler_game_user;
+DROP TABLE IF EXISTS sh_game_user;
 DROP TABLE IF EXISTS game_user;
 DROP TABLE IF EXISTS game_action;
-DROP TABLE IF EXISTS secret_hitler_policy;
+DROP TABLE IF EXISTS sh_policy;
 DROP TABLE IF EXISTS game_rule;
 DROP TABLE IF EXISTS game;
 DROP TABLE IF EXISTS rule;
 DROP TABLE IF EXISTS action;
-DROP TABLE IF EXISTS secret_hitler_role;
+DROP TABLE IF EXISTS sh_role;
 DROP TABLE IF EXISTS fascist_policy_key;
 DROP TABLE IF EXISTS game_type;
 DROP TABLE IF EXISTS user;
@@ -100,7 +100,7 @@ CREATE TABLE game_action (
 
 /* Secret Hitler */
 
-CREATE TABLE secret_hitler_game (
+CREATE TABLE sh_game (
   id SERIAL PRIMARY KEY,
   game_id BIGINT UNSIGNED UNIQUE NOT NULL,
   turn INT NOT NULL DEFAULT 1,
@@ -109,7 +109,7 @@ CREATE TABLE secret_hitler_game (
 );
 
 /* Role cards */
-CREATE TABLE secret_hitler_role (
+CREATE TABLE sh_role (
   id SERIAL PRIMARY KEY,
   secret_identity VARCHAR(7) NOT NULL,
   party_membership BOOLEAN NOT NULL
@@ -126,10 +126,10 @@ CREATE TABLE fascist_policy_key (
 );
 
 /* Used to keep track of Secret Hitler game user information */
-CREATE TABLE secret_hitler_game_user(
+CREATE TABLE sh_game_user(
   id SERIAL PRIMARY KEY,
   game_user_id BIGINT UNSIGNED NOT NULL,
-  secret_hitler_role_id BIGINT UNSIGNED NOT NULL DEFAULT 1,
+  sh_role_id BIGINT UNSIGNED NOT NULL DEFAULT 1,
   president BOOLEAN NOT NULL DEFAULT 0,
   chancellor BOOLEAN NOT NULL DEFAULT 0,
   prev_president BOOLEAN NOT NULL DEFAULT 0,
@@ -140,11 +140,11 @@ CREATE TABLE secret_hitler_game_user(
   executed BOOLEAN NOT NULL DEFAULT 0,
   ballot BOOLEAN DEFAULT NULL,
   FOREIGN KEY(game_user_id) REFERENCES game_user(id),
-  FOREIGN KEY(secret_hitler_role_id) REFERENCES secret_hitler_role(id)
+  FOREIGN KEY(sh_role_id) REFERENCES sh_role(id)
 );
 
 /* Policy cards */
-CREATE TABLE secret_hitler_policy (
+CREATE TABLE sh_policy (
   id SERIAL PRIMARY KEY,
   game_id BIGINT UNSIGNED NOT NULL,
   fascist BOOLEAN NOT NULL,
@@ -156,14 +156,14 @@ CREATE TABLE secret_hitler_policy (
 
 /* Axis and Allies */
 
-CREATE TABLE axis_and_allies_country (
+CREATE TABLE aa_country (
   id SERIAL PRIMARY KEY,
   game_id BIGINT UNSIGNED NOT NULL,
   name VARCHAR(30) NOT NULL,
   FOREIGN KEY(game_id) REFERENCES game(id)
 );
 
-CREATE TABLE axis_and_allies_unit (
+CREATE TABLE aa_unit (
   id SERIAL PRIMARY KEY,
   name VARCHAR(20) NOT NULL,
   attack INT,
@@ -172,15 +172,15 @@ CREATE TABLE axis_and_allies_unit (
   cost INT NOT NULL
 );
 
-CREATE TABLE axis_and_allies_country_unit (
+CREATE TABLE aa_country_unit (
   id SERIAL PRIMARY KEY,
   game_id BIGINT UNSIGNED NOT NULL,
-  unit_id BIGINT UNSIGNED NOT NULL,
+  aa_unit_id BIGINT UNSIGNED NOT NULL,
   FOREIGN KEY(game_id) REFERENCES game(id),
-  FOREIGN KEY(unit_id) REFERENCES axis_and_allies_unit(id)
+  FOREIGN KEY(aa_unit_id) REFERENCES aa_unit(id)
 );
 
-CREATE TABLE axis_and_allies_region (
+CREATE TABLE aa_region (
   id SERIAL PRIMARY KEY,
   name VARCHAR(40) NOT NULL,
   ipc INT,
@@ -190,17 +190,17 @@ CREATE TABLE axis_and_allies_region (
   adj_regions INT ARRAY
 );
 
-CREATE TABLE axis_and_allies_country_territory (
+CREATE TABLE aa_country_territory (
   id SERIAL PRIMARY KEY,
 );
 
 /* Used to keep track of Axis and Allies game user information */
-CREATE TABLE axis_and_allies_game_user(
+CREATE TABLE aa_game_user(
   id SERIAL PRIMARY KEY,
   game_user_id BIGINT UNSIGNED NOT NULL,
-  axis_and_allies_country_id BIGINT UNSIGNED NOT NULL DEFAULT 1,
+  aa_country_id BIGINT UNSIGNED NOT NULL DEFAULT 1,
   FOREIGN KEY(game_user_id) REFERENCES game_user(id),
-  FOREIGN KEY(axis_and_allies_country_id) REFERENCES axis_and_allies_country(id)
+  FOREIGN KEY(aa_country_id) REFERENCES aa_country(id)
 );
 
 /* Generic Games */
@@ -214,17 +214,17 @@ INSERT INTO rule(game_type_id, name, description) VALUES (2, "Shadow Democracy",
 INSERT INTO rule(game_type_id, name, description) VALUES (2, "Political Leverage", "If the group rejects three governments in a row, any power granted by the enacted policy is granted to the previously elected president");
 INSERT INTO rule(game_type_id, name, description) VALUES (2, "Underground Nazi Network", "Fascist players, excluding Hitler, will see who their other teammates are for the duration of the game");
 
-INSERT INTO secret_hitler_role(secret_identity, party_membership) VALUES ("Hitler", 1);
-INSERT INTO secret_hitler_role(secret_identity, party_membership) VALUES ("Fascist", 1);
-INSERT INTO secret_hitler_role(secret_identity, party_membership) VALUES ("Liberal", 0);
-INSERT INTO secret_hitler_role(secret_identity, party_membership) VALUES ("Liberal", 0);
-INSERT INTO secret_hitler_role(secret_identity, party_membership) VALUES ("Liberal", 0);
-INSERT INTO secret_hitler_role(secret_identity, party_membership) VALUES ("Liberal", 0);
-INSERT INTO secret_hitler_role(secret_identity, party_membership) VALUES ("Fascist", 1);
-INSERT INTO secret_hitler_role(secret_identity, party_membership) VALUES ("Liberal", 0);
-INSERT INTO secret_hitler_role(secret_identity, party_membership) VALUES ("Fascist", 1);
-INSERT INTO secret_hitler_role(secret_identity, party_membership) VALUES ("Liberal", 0);
-INSERT INTO secret_hitler_role(secret_identity, party_membership) VALUES ("Temp", 0);
+INSERT INTO sh_role(secret_identity, party_membership) VALUES ("Hitler", 1);
+INSERT INTO sh_role(secret_identity, party_membership) VALUES ("Fascist", 1);
+INSERT INTO sh_role(secret_identity, party_membership) VALUES ("Liberal", 0);
+INSERT INTO sh_role(secret_identity, party_membership) VALUES ("Liberal", 0);
+INSERT INTO sh_role(secret_identity, party_membership) VALUES ("Liberal", 0);
+INSERT INTO sh_role(secret_identity, party_membership) VALUES ("Liberal", 0);
+INSERT INTO sh_role(secret_identity, party_membership) VALUES ("Fascist", 1);
+INSERT INTO sh_role(secret_identity, party_membership) VALUES ("Liberal", 0);
+INSERT INTO sh_role(secret_identity, party_membership) VALUES ("Fascist", 1);
+INSERT INTO sh_role(secret_identity, party_membership) VALUES ("Liberal", 0);
+INSERT INTO sh_role(secret_identity, party_membership) VALUES ("Temp", 0);
 
 /* Used to determine Presidential Powers */
 INSERT INTO fascist_policy_key(name, description, enacted_count, min_players, max_players) VALUES (null, "A blank policy", 1, 5, 8);
