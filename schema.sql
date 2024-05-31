@@ -1,5 +1,5 @@
 DROP TABLE IF EXISTS game_rule;
-DROP TABLE IF EXISTS sh_game_user;
+DROP TABLE IF EXISTS sh_player;
 DROP TABLE IF EXISTS game_user;
 DROP TABLE IF EXISTS game_action;
 DROP TABLE IF EXISTS sh_policy;
@@ -85,15 +85,13 @@ CREATE TABLE action (
 );
 
 /* The action a player invokes */
-CREATE TABLE game_action (
+CREATE TABLE game_user_action (
   id SERIAL PRIMARY KEY,
-  game_id BIGINT UNSIGNED NOT NULL,
   action_id BIGINT UNSIGNED NOT NULL,
   game_user_id BIGINT UNSIGNED,
   target_user_id BIGINT UNSIGNED,
   turn INT NOT NULL,
   action_time DATETIME NOT NULL,
-  FOREIGN KEY(game_id) REFERENCES game(id),
   FOREIGN KEY(game_user_id) REFERENCES game_user(id),
   FOREIGN KEY(action_id) REFERENCES action(id)
 );
@@ -125,8 +123,8 @@ CREATE TABLE fascist_policy_key (
   max_players INT NOT NULL
 );
 
-/* Used to keep track of Secret Hitler game user information */
-CREATE TABLE sh_game_user(
+/* Used to keep track of Secret Hitler player information */
+CREATE TABLE sh_player (
   id SERIAL PRIMARY KEY,
   game_user_id BIGINT UNSIGNED NOT NULL,
   sh_role_id BIGINT UNSIGNED NOT NULL DEFAULT 1,
@@ -146,37 +144,52 @@ CREATE TABLE sh_game_user(
 /* Policy cards */
 CREATE TABLE sh_policy (
   id SERIAL PRIMARY KEY,
-  game_id BIGINT UNSIGNED NOT NULL,
+  sh_game_id BIGINT UNSIGNED NOT NULL,
   fascist BOOLEAN NOT NULL,
   deck_order INT NOT NULL,
   discarded BOOLEAN NOT NULL,
   enacted BOOLEAN NOT NULL,
-  FOREIGN KEY(game_id) REFERENCES game(id)
+  FOREIGN KEY(sh_game_id) REFERENCES sh_game(id)
 );
 
 /* Axis and Allies */
 
+CREATE TABLE aa_game (
+  id SERIAL PRIMARY KEY,
+  game_id BIGINT UNSIGNED UNIQUE NOT NULL,
+  current_country BIGINT UNSIGNED,
+  turn INT NOT NULL DEFAULT 1,
+  phase INT NOT NULL DEFAULT 1, /* Int range 1 - 6 */
+  FOREIGN KEY(game_id) REFERENCES game(id)
+);
+
+/* Used to keep track of Axis and Allies country information */
 CREATE TABLE aa_country (
   id SERIAL PRIMARY KEY,
-  game_id BIGINT UNSIGNED NOT NULL,
+  aa_game_id BIGINT UNSIGNED NOT NULL,
+  game_user_id BIGINT UNSIGNED NOT NULL,
   name VARCHAR(30) NOT NULL,
-  FOREIGN KEY(game_id) REFERENCES game(id)
+  ipc INT,
+  FOREIGN KEY(aa_game_id) REFERENCES aa_game(id),
+  FOREIGN KEY(game_user_id) REFERENCES game_user(id)
 );
 
 CREATE TABLE aa_unit (
   id SERIAL PRIMARY KEY,
   name VARCHAR(20) NOT NULL,
+  cost INT,
   attack INT,
   defense INT,
   movement INT,
-  cost INT NOT NULL
+  hit_points IN NOT NULL DEFAULT 1,
 );
 
 CREATE TABLE aa_country_unit (
   id SERIAL PRIMARY KEY,
-  game_id BIGINT UNSIGNED NOT NULL,
+  aa_country_id BIGINT UNSIGNED NOT NULL,
   aa_unit_id BIGINT UNSIGNED NOT NULL,
-  FOREIGN KEY(game_id) REFERENCES game(id),
+  health: INT,
+  FOREIGN KEY(aa_country_id) REFERENCES aa_country(id),
   FOREIGN KEY(aa_unit_id) REFERENCES aa_unit(id)
 );
 
@@ -187,20 +200,39 @@ CREATE TABLE aa_region (
   is_water BOOLEAN NOT NULL DEFAULT 0,
   is_coastal BOOLEAN NOT NULL DEFAULT 0,
   is_island BOOLEAN NOT NULL DEFAULT 0,
-  adj_regions INT ARRAY
+  can_have_minor_ic BOOLEAN NOT NULL DEFAULT 0,
+  can_have_major_ic BOOLEAN NOT NULL DEFAULT 0,
+  can_have_air_base BOOLEAN NOT NULL DEFAULT 0,
+  can_have_naval_base BOOLEAN NOT NULL DEFAULT 0
 );
+
+/* TODO: Add mapping to adjacent regions */
 
 CREATE TABLE aa_country_territory (
   id SERIAL PRIMARY KEY,
+  aa_country_id BIGINT UNSIGNED NOT NULL,
+  aa_region_id BIGINT UNSIGNED NOT NULL,
+  captured BOOLEAN NOT NULL DEFAULT 0, /* Keeps track if the territory was captured by that country. Captured territories can't make major ics */
+  FOREIGN KEY(aa_country_id) REFERENCES aa_country(id),
+  FOREIGN KEY(aa_region_id) REFERENCES aa_region(id)
 );
 
-/* Used to keep track of Axis and Allies game user information */
-CREATE TABLE aa_game_user(
+CREATE TABLE aa_facility (
   id SERIAL PRIMARY KEY,
-  game_user_id BIGINT UNSIGNED NOT NULL,
-  aa_country_id BIGINT UNSIGNED NOT NULL DEFAULT 1,
-  FOREIGN KEY(game_user_id) REFERENCES game_user(id),
-  FOREIGN KEY(aa_country_id) REFERENCES aa_country(id)
+  name VARCHAR(40) NOT NULL,
+  cost INT,
+  hit_points INT,
+  disabled_at INT
+);
+
+CREATE TABLE aa_country_territory_facility (
+  id SERIAL PRIMARY KEY,
+  aa_country_territory_id BIGINT UNSIGNED NOT NULL,
+  aa_facility_id BIGINT UNSIGNED NOT NULL,
+  health INT,
+  disabled BOOLEAN NOT NULL DEFAULT 0,
+  FOREIGN KEY(aa_country_territory_id) REFERENCES aa_country_territory(id),
+  FOREIGN KEY(aa_facility_id) REFERENCES aa_facility(id)
 );
 
 /* Generic Games */
@@ -284,3 +316,27 @@ INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Investigated l
 INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Called Special Election", 0);
 INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Examined top 3 policies", 0);
 INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Executed", 0);
+
+/* Axis and Allies */
+
+INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Infantry", 3, 1, 2, 1);
+INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Artillery", 4, 2, 2, 1);
+INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Mechanized Infantry", 4, 1, 2, 2);
+INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Tank", 6, 3, 3, 2);
+INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Antiaircraft Artillery", 5, null, null, 1);
+INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Fighter", 10, 3, 4, 4);
+INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Tactical Bomber", 11, 3, 3, 4);
+INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Strategic Bombers", 12, 4, 1, 6);
+INSERT INTO aa_unit(name, cost, attack, defense, movement, hit_points) VALUES ("Battleship", 20, 4, 4, 2, 2);
+INSERT INTO aa_unit(name, cost, attack, defense, movement, hit_points) VALUES ("Aircraft Carrier", 16, 0, 2, 2, 2);
+INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Cruiser", 12, 3, 3, 2);
+INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Destroyer", 8, 2, 2, 2);
+INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Submarine", 6, 2, 1, 2);
+INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Transport", 7, 0, 0, 2);
+
+INSERT INTO aa_facility(name, cost, hit_points, disabled_at) VALUES ("Major Industrial Complex", 30, 20, 10);
+INSERT INTO aa_facility(name, cost, hit_points, disabled_at) VALUES ("Minor Industrial Complex", 12, 6, 3);
+INSERT INTO aa_facility(name, cost, hit_points, disabled_at) VALUES ("Air base", 15, 6, 3);
+INSERT INTO aa_facility(name, cost, hit_points, disabled_at) VALUES ("Naval base", 15, 6, 3);
+
+INSERT INTO aa_region (name, ipc, is_water, is_coastal, is_island, can_have_minor_ic, can_have_major_ic, can_have_air_base, can_have_naval_base) VALUES ("11", null, 1, 0, 0, 0, 0, 0, 0)
