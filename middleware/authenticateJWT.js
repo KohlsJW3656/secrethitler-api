@@ -29,7 +29,7 @@ function authenticateToken(req, res, next) {
       return res.sendStatus(403);
     }
 
-    //user_id, email, accout_type, service will be put onto the req.user object
+    //user_id, email, account_type, service will be put onto the req.user object
     req.user = user;
 
     //continue to the next function

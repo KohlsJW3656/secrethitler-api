@@ -60,12 +60,12 @@ app.patch("/policy/:policy_id", (request, response) => {
 
 io.on("connection", (socket) => {
   socketCount++;
-  io.sockets.emit("users-conneceted", socketCount);
+  io.sockets.emit("users-connected", socketCount);
   console.log("Users connected", socketCount);
 
   socket.on("disconnect", function () {
     socketCount--;
-    io.sockets.emit("users-conneceted", socketCount);
+    io.sockets.emit("users-connected", socketCount);
     console.log("Users connected", socketCount);
   });
 

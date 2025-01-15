@@ -1,9 +1,19 @@
 DROP TABLE IF EXISTS game_rule;
 DROP TABLE IF EXISTS sh_player;
+DROP TABLE IF EXISTS aa_country_facility;
+DROP TABLE IF EXISTS aa_country_unit;
+DROP TABLE IF EXISTS aa_country_territory;
+DROP TABLE IF EXISTS aa_country;
+DROP TABLE IF EXISTS aa_region;
+DROP TABLE IF EXISTS aa_unit;
+DROP TABLE IF EXISTS aa_facility;
+DROP TABLE IF EXISTS game_user_action;
 DROP TABLE IF EXISTS game_user;
 DROP TABLE IF EXISTS game_action;
 DROP TABLE IF EXISTS sh_policy;
 DROP TABLE IF EXISTS game_rule;
+DROP TABLE IF EXISTS sh_game;
+DROP TABLE IF EXISTS aa_game;
 DROP TABLE IF EXISTS game;
 DROP TABLE IF EXISTS rule;
 DROP TABLE IF EXISTS action;
@@ -174,40 +184,31 @@ CREATE TABLE aa_country (
   FOREIGN KEY(game_user_id) REFERENCES game_user(id)
 );
 
+/* Units */
 CREATE TABLE aa_unit (
   id SERIAL PRIMARY KEY,
-  name VARCHAR(20) NOT NULL,
+  name VARCHAR(30) NOT NULL,
   cost INT,
+  alt_cost INT,
   attack INT,
   defense INT,
   movement INT,
-  hit_points IN NOT NULL DEFAULT 1,
+  hit_points INT NOT NULL DEFAULT 1
 );
 
-CREATE TABLE aa_country_unit (
-  id SERIAL PRIMARY KEY,
-  aa_country_id BIGINT UNSIGNED NOT NULL,
-  aa_unit_id BIGINT UNSIGNED NOT NULL,
-  health: INT,
-  FOREIGN KEY(aa_country_id) REFERENCES aa_country(id),
-  FOREIGN KEY(aa_unit_id) REFERENCES aa_unit(id)
-);
-
+/* All regions on the map */
 CREATE TABLE aa_region (
   id SERIAL PRIMARY KEY,
   name VARCHAR(40) NOT NULL,
   ipc INT,
   is_water BOOLEAN NOT NULL DEFAULT 0,
-  is_coastal BOOLEAN NOT NULL DEFAULT 0,
-  is_island BOOLEAN NOT NULL DEFAULT 0,
-  can_have_minor_ic BOOLEAN NOT NULL DEFAULT 0,
-  can_have_major_ic BOOLEAN NOT NULL DEFAULT 0,
-  can_have_air_base BOOLEAN NOT NULL DEFAULT 0,
-  can_have_naval_base BOOLEAN NOT NULL DEFAULT 0
+  is_island BOOLEAN NOT NULL DEFAULT 0, -- Industrial complexes cannot be placed on islands
+  is_coastal BOOLEAN NOT NULL DEFAULT 0 -- Naval bases can only be placed on coastal territories
 );
 
 /* TODO: Add mapping to adjacent regions */
 
+/* A country's region */
 CREATE TABLE aa_country_territory (
   id SERIAL PRIMARY KEY,
   aa_country_id BIGINT UNSIGNED NOT NULL,
@@ -217,6 +218,17 @@ CREATE TABLE aa_country_territory (
   FOREIGN KEY(aa_region_id) REFERENCES aa_region(id)
 );
 
+/* A country's unit and which territory it is in */
+CREATE TABLE aa_country_unit (
+  id SERIAL PRIMARY KEY,
+  aa_country_territory_id BIGINT UNSIGNED NOT NULL,
+  aa_unit_id BIGINT UNSIGNED NOT NULL,
+  health INT,
+  FOREIGN KEY(aa_country_territory_id) REFERENCES aa_country_territory(id),
+  FOREIGN KEY(aa_unit_id) REFERENCES aa_unit(id)
+);
+
+/* Facilities */
 CREATE TABLE aa_facility (
   id SERIAL PRIMARY KEY,
   name VARCHAR(40) NOT NULL,
@@ -225,7 +237,8 @@ CREATE TABLE aa_facility (
   disabled_at INT
 );
 
-CREATE TABLE aa_country_territory_facility (
+/* A country's facility and which territory it is in */
+CREATE TABLE aa_country_facility (
   id SERIAL PRIMARY KEY,
   aa_country_territory_id BIGINT UNSIGNED NOT NULL,
   aa_facility_id BIGINT UNSIGNED NOT NULL,
@@ -319,24 +332,224 @@ INSERT INTO action(game_type_id, name, system_action) VALUES (2, "Executed", 0);
 
 /* Axis and Allies */
 
-INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Infantry", 3, 1, 2, 1);
-INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Artillery", 4, 2, 2, 1);
-INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Mechanized Infantry", 4, 1, 2, 2);
-INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Tank", 6, 3, 3, 2);
-INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Antiaircraft Artillery", 5, null, null, 1);
-INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Fighter", 10, 3, 4, 4);
-INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Tactical Bomber", 11, 3, 3, 4);
-INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Strategic Bombers", 12, 4, 1, 6);
-INSERT INTO aa_unit(name, cost, attack, defense, movement, hit_points) VALUES ("Battleship", 20, 4, 4, 2, 2);
-INSERT INTO aa_unit(name, cost, attack, defense, movement, hit_points) VALUES ("Aircraft Carrier", 16, 0, 2, 2, 2);
-INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Cruiser", 12, 3, 3, 2);
-INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Destroyer", 8, 2, 2, 2);
-INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Submarine", 6, 2, 1, 2);
-INSERT INTO aa_unit(name, cost, attack, defense, movement) VALUES ("Transport", 7, 0, 0, 2);
+INSERT INTO aa_unit(name, cost, alt_cost, attack, defense, movement) VALUES ("Infantry", 3, null, 1, 2, 1);
+INSERT INTO aa_unit(name, cost, alt_cost, attack, defense, movement) VALUES ("Artillery", 4, null, 2, 2, 1);
+INSERT INTO aa_unit(name, cost, alt_cost, attack, defense, movement) VALUES ("Mechanized Infantry", 4, null, 1, 2, 2);
+INSERT INTO aa_unit(name, cost, alt_cost, attack, defense, movement) VALUES ("Tank", 6, null, 3, 3, 2);
+INSERT INTO aa_unit(name, cost, alt_cost, attack, defense, movement) VALUES ("Antiaircraft Artillery", 5, null, null, null, 1);
+INSERT INTO aa_unit(name, cost, alt_cost, attack, defense, movement) VALUES ("Fighter", 10, null, 3, 4, 4);
+INSERT INTO aa_unit(name, cost, alt_cost, attack, defense, movement) VALUES ("Tactical Bomber", 11, null, 3, 3, 4);
+INSERT INTO aa_unit(name, cost, alt_cost, attack, defense, movement) VALUES ("Strategic Bombers", 12, null, 4, 1, 6);
+INSERT INTO aa_unit(name, cost, alt_cost, attack, defense, movement, hit_points) VALUES ("Battleship", 20, 17, 4, 4, 2, 2);
+INSERT INTO aa_unit(name, cost, alt_cost, attack, defense, movement, hit_points) VALUES ("Aircraft Carrier", 16, 13, null, 2, 2, 2);
+INSERT INTO aa_unit(name, cost, alt_cost, attack, defense, movement) VALUES ("Cruiser", 12, 9, 3, 3, 2);
+INSERT INTO aa_unit(name, cost, alt_cost, attack, defense, movement) VALUES ("Destroyer", 8, 7, 2, 2, 2);
+INSERT INTO aa_unit(name, cost, alt_cost, attack, defense, movement) VALUES ("Transport", 7, 6, null, null, 2);
+INSERT INTO aa_unit(name, cost, alt_cost, attack, defense, movement) VALUES ("Submarine", 6, 5, 2, 1, 2);
 
 INSERT INTO aa_facility(name, cost, hit_points, disabled_at) VALUES ("Major Industrial Complex", 30, 20, 10);
 INSERT INTO aa_facility(name, cost, hit_points, disabled_at) VALUES ("Minor Industrial Complex", 12, 6, 3);
 INSERT INTO aa_facility(name, cost, hit_points, disabled_at) VALUES ("Air base", 15, 6, 3);
 INSERT INTO aa_facility(name, cost, hit_points, disabled_at) VALUES ("Naval base", 15, 6, 3);
 
-INSERT INTO aa_region (name, ipc, is_water, is_coastal, is_island, can_have_minor_ic, can_have_major_ic, can_have_air_base, can_have_naval_base) VALUES ("11", null, 1, 0, 0, 0, 0, 0, 0)
+/* Water Regions */
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("1", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("2", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("3", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("4", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("5", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("6", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("7", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("8", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("9", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("10", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("11", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("12", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("13", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("14", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("15", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("16", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("17", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("18", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("19", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("20", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("21", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("22", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("23", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("24", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("25", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("26", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("27", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("28", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("29", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("30", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("31", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("32", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("33", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("34", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("35", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("36", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("37", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("38", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("39", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("40", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("41", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("42", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("43", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("44", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("45", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("46", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("47", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("48", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("49", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("50", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("51", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("52", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("53", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("54", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("55", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("56", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("57", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("58", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("59", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("60", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("61", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("62", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("63", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("64", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("65", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("66", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("67", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("68", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("69", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("70", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("71", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("72", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("73", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("74", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("75", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("76", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("77", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("78", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("79", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("80", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("81", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("82", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("83", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("84", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("85", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("86", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("87", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("88", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("89", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("90", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("91", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("92", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("93", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("94", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("95", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("96", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("97", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("98", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("99", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("100", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("101", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("102", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("103", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("104", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("105", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("106", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("107", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("108", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("109", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("110", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("111", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("112", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("113", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("114", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("115", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("116", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("117", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("118", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("119", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("120", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("121", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("122", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("123", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("124", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("125", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("126", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("127", null, 1, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Caspian Sea", null, 1, 0, 0);
+
+/* North America */
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Greenland", null, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Alberta Saskatchewan Manitoba", 1, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Ontario", 2, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Quebec", 2, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Newfoundland Labrador", null, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("New Brunswick Nova Scotia", 1, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Western Canada", 1, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Alaska", 2, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Aleutian Islands", null, 0, 1, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Central United States", 12, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Eastern United States", 20, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Western United States", 10, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Mexico", 2, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Southeast Mexico", 1, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("West Indies", 1, 0, 1, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Central America", 1, 0, 0, 1);
+
+/* South America */
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Venezuela", 2, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Colombia", null, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Ecuador", null, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Peru", null, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Bolivia", null, 0, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Paraguay", null, 0, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Chile", 2, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Argentina", 2, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Uruguay", null, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Brazil", 2, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("British Guiana", null, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Suriname", null, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("French Guiana", null, 0, 0, 1);
+
+/* Africa */
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Morocco", 1, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Algeria", 1, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Tunisia", 1, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Libya", 1, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Tobruk", null, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Alexandria", null, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Egypt", 2, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Anglo-Egyptian Sudan", 1, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Rio de Oro", null, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Sahara Desert", null, 0, 0, 1); -- impassible
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Portuguese Guinea", null, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("French West Africa", 1, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Sierra Leone", null, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Liberia", null, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Gold Coast", 1, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("French Central Africa", 1, 0, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Nigeria", 1, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("French Equatorial Africa", 1, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Ethiopia", 1, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("British Somaliland", null, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Italian Somaliland", null, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Kenya", 1, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Belgian Congo", 1, 0, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Angola", 1, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("South West Africa", 1, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Rhodesia", 1, 0, 0, 0);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Union of South Africa", 2, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Mozambique", 1, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Tanganyika Territory", 1, 0, 0, 1);
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("French Madagascar", 1, 0, 1, 1);
+
+/* Europe */
+INSERT INTO aa_region (name, ipc, is_water, is_island, is_coastal) VALUES ("Iceland", null, 0, 1, 1);
+
+/* Asia */
+
+/* Australia */
